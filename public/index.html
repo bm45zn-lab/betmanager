@@ -53,63 +53,126 @@ small{color:#aabbb2}
 </div>
 </main>
 <script>
-const $=id=>document.getElementById(id);
-const date=new Date().toLocaleDateString('en-CA');
-$('from').value=date;
-$('to').value=date;
 
-async function api(path){
- const r=await fetch(path);
- const d=await r.json();
- if(!r.ok)throw Error(d.error||'Erro de ligação');
- return d;
+const $ = id => document.getElementById(id);
+
+const today = new Date().toLocaleDateString("en-CA");
+$("from").value = today;
+$("to").value = today;
+
+let leagues = [];
+
+async function api(path) {
+  const r = await fetch(path);
+  const d = await r.json();
+
+  if (!r.ok) {
+    throw Error(
+      d.error + (d.details
+        ? ": " + JSON.stringify(d.details)
+        : "")
+    );
+  }
+
+  return d;
 }
 
-async function loadFixtures(){
- const from=$('from').value,to=$('to').value;
- const league=$('league').value;
- if(!from||!to||from>to)return alert('Verifica as datas.');
+async function loadLeagues() {
+  const select = $("league");
+  select.innerHTML = '<option value="">A carregar ligas...</option>';
 
- $('status').textContent='A consultar jogos...';
- $('games').textContent='A carregar...';
+  try {
+    const data = await api("/api/leagues?season=2026");
+    leagues = data.results || [];
 
- try{
-  const q=new URLSearchParams({from,to});
-  if(league)q.set('league',league);
-  const data=await api('/api/fixtures?'+q);
-  const games=data.results||[];
+    select.innerHTML =
+      '<option value="">Todas as competições</option>' +
+      leagues.map(l =>
+        `<option value="${l.id}" data-season="${l.season}">
+          ${l.name} — ${l.country}
+        </option>`
+      ).join("");
 
-  $('status').textContent=games.length+' jogos encontrados';
-  $('games').innerHTML=games.length?games.map(g=>`
-   <div class="match">
-    <b>${g.teams.home.name} – ${g.teams.away.name}</b>
-    <p><small>${g.league.name} · ${g.fixture.date}</small></p>
-    <button onclick="analyse(${g.fixture.id})">Analisar jogo</button>
-   </div>`).join(''):'Não foram encontrados jogos.';
- }catch(e){$('status').textContent=e.message;$('games').textContent='Erro ao carregar jogos.'}
+  } catch (e) {
+    select.innerHTML = '<option value="">Erro ao carregar ligas</option>';
+    $("status").textContent = e.message;
+  }
 }
 
-async function analyse(id){
- $('analysis').textContent='A consultar estatísticas e previsões...';
- try{
-  const [s,p]=await Promise.all([
-   api('/api/statistics?fixture='+id),
-   api('/api/predictions?fixture='+id)
-  ]);
+async function loadFixtures() {
+  const from = $("from").value;
+  const to = $("to").value;
+  const select = $("league");
+  const league = select.value;
+  const season = select.selectedOptions[0]?.dataset.season;
 
-  $('analysis').innerHTML='<h3>Estatísticas</h3>'+
-   (s.results||[]).map(team=>`
-    <h4>${team.team.name}</h4>`+
-    (team.statistics||[]).map(x=>`
-     <p>${x.type}: <b>${x.value??'N/D'}</b></p>`).join('')
-   ).join('')+
-   '<h3>Previsão do fornecedor</h3>'+
-   '<pre style="white-space:pre-wrap"></pre>';
+  if (!from || !to || from > to) {
+    return alert("Verifica as datas.");
+  }
 
-  $('analysis').querySelector('pre').textContent=
-   JSON.stringify(p.results,null,2);
- }catch(e){$('analysis').textContent=e.message}
+  $("status").textContent = "A consultar jogos...";
+  $("games").textContent = "A carregar...";
+
+  try {
+    const q = new URLSearchParams({ from, to });
+
+    if (league) {
+      q.set("league", league);
+      q.set("season", season || "2026");
+    }
+
+    const data = await api("/api/fixtures?" + q);
+    const games = data.results || [];
+
+    $("status").textContent =
+      games.length + " jogos encontrados";
+
+    $("games").innerHTML = games.length
+      ? games.map(g => `
+        <div class="match">
+          <b>${g.teams.home.name} – ${g.teams.away.name}</b>
+          <p><small>${g.league.name} · ${new Date(g.fixture.date).toLocaleString("pt-PT")}</small></p>
+          <button onclick="analyse(${g.fixture.id})">
+            Analisar jogo
+          </button>
+        </div>
+      `).join("")
+      : "Não foram encontrados jogos.";
+
+  } catch (e) {
+    $("status").textContent = e.message;
+    $("games").textContent = "Erro ao carregar jogos.";
+  }
 }
-</script>
+
+async function analyse(id) {
+  $("analysis").textContent = "A consultar estatísticas...";
+
+  try {
+    const [s, p] = await Promise.all([
+      api("/api/statistics?fixture=" + id),
+      api("/api/predictions?fixture=" + id)
+    ]);
+
+    $("analysis").innerHTML =
+      "<h3>Estatísticas</h3>" +
+      (s.results || []).map(team =>
+        `<h4>${team.team.name}</h4>` +
+        (team.statistics || []).map(x =>
+          `<p>${x.type}: <b>${x.value ?? "N/D"}</b></p>`
+        ).join("")
+      ).join("") +
+      "<h3>Previsões do fornecedor</h3><pre></pre>";
+
+    $("analysis").querySelector("pre").textContent =
+      JSON.stringify(p.results, null, 2);
+
+  } catch (e) {
+    $("analysis").textContent = e.message;
+  }
+}
+
+loadLeagues();
+
 </body>
 </html>
