@@ -23,6 +23,10 @@ button:disabled{opacity:.6;cursor:wait}
 .team-heading{display:flex;align-items:center;gap:9px;margin:14px 0 8px}
 .team-heading img{width:28px;height:28px;object-fit:contain}
 .metric{display:grid;grid-template-columns:1fr auto;gap:12px;padding:8px 0;border-bottom:1px solid #34443d}
+.comparison-row{grid-template-columns:minmax(110px,1fr) minmax(0,2fr);align-items:start}
+.comparison-nested{min-width:0}
+.comparison-nested .metric{grid-template-columns:minmax(80px,1fr) minmax(0,1fr);gap:8px;padding:5px 0}
+.comparison-nested .metric:last-child{border-bottom:0}
 .muted{color:#aabbb2}
 .prediction{padding:12px;background:#182620;border-radius:8px;margin:8px 0}
 small{color:#aabbb2}
@@ -256,6 +260,39 @@ function renderTeamStatistics(team) {
     '</details></div>';
 }
 
+function comparisonLabel(value) {
+  return String(value)
+    .replace(/_/g, " ")
+    .replace(/\\b\\w/g, char => char.toLocaleUpperCase("pt-PT"));
+}
+
+function renderComparisonValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return '<span class="muted">—</span>';
+  }
+
+  if (Array.isArray(value)) {
+    if (!value.length) return '<span class="muted">Sem dados</span>';
+    return '<div class="comparison-nested">' +
+      value.map((entry, index) =>
+        '<div class="metric"><span>' + (index + 1) + '</span>' +
+        '<div>' + renderComparisonValue(entry) + '</div></div>'
+      ).join("") + '</div>';
+  }
+
+  if (typeof value === "object") {
+    const entries = Object.entries(value);
+    if (!entries.length) return '<span class="muted">Sem dados</span>';
+    return '<div class="comparison-nested">' +
+      entries.map(([key, entry]) =>
+        '<div class="metric"><span>' + safeText(comparisonLabel(key)) + '</span>' +
+        '<div>' + renderComparisonValue(entry) + '</div></div>'
+      ).join("") + '</div>';
+  }
+
+  return safeText(String(value));
+}
+
 function renderPredictions(data) {
   const item = Array.isArray(data) ? data[0] : null;
   if (!item) {
@@ -277,10 +314,14 @@ function renderPredictions(data) {
     '<div class="stat-card">Fora<strong>' + safeText(percent.away || "—") + '</strong></div>' +
     '</div></div>' +
     '<details><summary>Comparação das equipas</summary>' +
-    Object.entries(comparison).map(([key, value]) =>
-      '<div class="metric"><span>' + safeText(key) + '</span><b>' +
-      safeText(value) + '</b></div>'
-    ).join("") + '</details>';
+    (Object.keys(comparison).length
+      ? Object.entries(comparison).map(([key, value]) =>
+          '<div class="metric comparison-row"><span>' +
+          safeText(comparisonLabel(key)) + '</span><div>' +
+          renderComparisonValue(value) + '</div></div>'
+        ).join("")
+      : '<p class="muted">Sem dados de comparação disponíveis.</p>') +
+    '</details>';
 }
 
 async function analyse(id) {
