@@ -42,6 +42,12 @@ button:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 8px
 button:active{transform:translateY(0)}
 button:disabled{opacity:.55;cursor:wait;transform:none}
 #searchButton{margin-top:17px;min-width:170px}
+#accumulatorButton{margin-top:17px;background:#242020;border-color:#654047;box-shadow:none}
+#accumulator-panel{margin:0 0 18px}
+.accumulator-pick{padding:13px 0;border-bottom:1px solid #303030}
+.accumulator-pick:last-child{border-bottom:0}
+.accumulator-pick strong{display:block;color:#ff6875;margin:3px 0}
+.accumulator-meta{font-size:11px;color:var(--muted)}
 #nationsLeagueButton{background:#241619;color:#ffdce0;border-color:#633039;box-shadow:none}
 .filter-groups{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
 .filter-group{border:1px solid #303030;border-radius:10px;background:#101010;overflow:hidden}
@@ -116,6 +122,7 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       <select id="league" hidden aria-hidden="true"><option value="">Todas as competições</option></select>
     </div>
     <button id="searchButton" type="button">Pesquisar jogos <span aria-hidden="true">→</span></button>
+    <button id="accumulatorButton" type="button">Criar aposta múltipla</button>
     <div class="filter-groups" aria-label="Atalhos para competições">
       <details class="filter-group">
         <summary>Ligas nacionais <span class="muted">Europa</span></summary>
@@ -146,6 +153,10 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       </details>
     </div>
     <p id="status"><small>Seleciona as datas para começar.</small></p>
+  </section>
+  <section class="card" id="accumulator-panel" hidden>
+    <h2 class="section-title">Aposta múltipla — seleções mais conservadoras</h2>
+    <div id="accumulator-content"></div>
   </section>
   <section class="workspace">
     <div class="card" id="games-panel">
@@ -544,6 +555,101 @@ function renderPredictions(data) {
     '</details>';
 }
 
+async function createAccumulator() {
+  const league = $("league").value;
+  const season = $("league").selectedOptions[0]?.dataset.season || "2026";
+  const from = $("from").value;
+  const to = $("to").value;
+  const button = $("accumulatorButton");
+  const panel = $("accumulator-panel");
+  const content = $("accumulator-content");
+
+  if (!league) {
+    $("status").textContent = "Seleciona primeiro uma liga ou competição nos atalhos.";
+    return;
+  }
+  if (!from || !to || from > to) {
+    $("status").textContent = "Verifica as datas antes de criar a aposta múltipla.";
+    return;
+  }
+
+  panel.hidden = false;
+  content.textContent = "A analisar os jogos da competição e os mercados históricos. Isto pode demorar um pouco...";
+  button.disabled = true;
+  button.textContent = "A analisar...";
+
+  try {
+    const query = new URLSearchParams({ from, to, league, season });
+    const fixtureData = await api("/api/fixtures?" + query.toString());
+    const upcoming = (Array.isArray(fixtureData.results) ? fixtureData.results : [])
+      .filter(game => ["NS", "TBD"].includes(String(game.fixture?.status?.short || "").toUpperCase()))
+      .sort((a, b) => new Date(a.fixture?.date || 0) - new Date(b.fixture?.date || 0));
+
+    if (!upcoming.length) {
+      content.innerHTML = '<p class="muted">Não há jogos por começar nesta competição e período.</p>';
+      return;
+    }
+
+    const candidates = [];
+    let cursor = 0;
+    async function worker() {
+      while (cursor < upcoming.length && candidates.length < 6) {
+        const game = upcoming[cursor++];
+        try {
+          const predictionData = await api("/api/predictions?fixture=" + encodeURIComponent(game.fixture.id));
+          const item = Array.isArray(predictionData.results) ? predictionData.results[0] : null;
+          const analysis = item?.marketAnalysis;
+          const pick = analysis?.recommendation || item?.betManagerSuggestion;
+          const probability = Number(pick?.probability);
+          const sample = Number(pick?.sample);
+          if (pick && pick.market && !/sem aposta|não apostar/i.test(pick.market) &&
+              Number.isFinite(probability) && probability >= 80 &&
+              Number.isFinite(sample) && sample >= 5) {
+            candidates.push({
+              date: game.fixture?.date,
+              home: game.teams?.home?.name || "Casa",
+              away: game.teams?.away?.name || "Fora",
+              market: pick.market,
+              probability,
+              hits: pick.hits,
+              sample,
+              reason: pick.reason
+            });
+          }
+        } catch (error) {
+          // Um jogo sem dados não invalida os restantes candidatos.
+        }
+      }
+    }
+    await Promise.all([worker(), worker(), worker()]);
+    candidates.sort((a, b) => b.probability - a.probability || b.sample - a.sample);
+    const selected = candidates.slice(0, 4);
+
+    if (!selected.length) {
+      content.innerHTML = '<p class="muted">Não encontrei seleções que cumpram os critérios mínimos: pelo menos 80% de frequência histórica e cinco observações. Prefiro não inventar uma aposta; hoje a decisão mais prudente é não apostar.</p>';
+      return;
+    }
+
+    content.innerHTML =
+      '<p class="muted">Competição selecionada · ' + safeText(selected.length) +
+      ' seleções aprovadas após análise individual. Apenas jogos por começar.</p>' +
+      selected.map((pick, index) =>
+        '<div class="accumulator-pick"><span class="accumulator-meta">SELEÇÃO ' + (index + 1) +
+        ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar") +
+        '</span><b>' + safeText(pick.home) + ' – ' + safeText(pick.away) + '</b>' +
+        '<strong>' + safeText(pick.market) + '</strong>' +
+        '<span class="accumulator-meta">Frequência histórica: ' + safeText(pick.probability) +
+        '% (' + safeText(pick.hits ?? "—") + '/' + safeText(pick.sample) + ' jogos)</span></div>'
+      ).join("") +
+      '<p class="muted">Critério conservador, não garantia: cada seleção é avaliada separadamente com dados históricos. Não calculo odd combinada nem valor esperado sem odds reais da casa de apostas. Mesmo seleções com frequência elevada podem falhar.</p>';
+  } catch (error) {
+    content.innerHTML = '<p class="muted">Não foi possível criar a aposta múltipla: ' + safeText(error.message) + '</p>';
+  } finally {
+    button.disabled = false;
+    button.textContent = "Criar aposta múltipla";
+  }
+}
+
 async function analyse(id) {
   $("analysis").innerHTML = '<p class="muted">A consultar estatísticas e previsões...</p>';
 
@@ -574,6 +680,7 @@ async function analyse(id) {
 }
 
 $("searchButton").addEventListener("click", loadFixtures);
+$("accumulatorButton").addEventListener("click", createAccumulator);
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
 });
