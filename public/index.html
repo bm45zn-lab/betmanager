@@ -493,9 +493,7 @@ function renderPredictions(data) {
       statCard("Cartões amarelos", liveStats.home?.yellowCards, liveStats.away?.yellowCards) +
       statCard("Posse de bola", liveStats.home?.possession, liveStats.away?.possession) +
       '</div>' +
-      '<div class="analysis-section"><h3>Odds ao vivo disponíveis</h3>' +
-      (odds.length ? odds.map(odd => '<div class="metric"><span>' + safeText(odd.market) + ' · ' + safeText(odd.selection) + '<small> · ' + safeText(odd.bookmaker) + '</small></span><b>' + safeText(odd.odd) + '</b></div>').join("") : '<p class="muted">A API não devolveu odds ao vivo para este encontro.</p>') +
-      '<p class="muted">' + safeText(live.note || "") + '</p></div>';
+      '<p class="muted">' + safeText(live.note || "") + '</p>';
   }
 
   const prediction = item.predictions || {};
