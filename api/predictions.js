@@ -122,114 +122,98 @@ async function recentMarketAnalysis(match, key) {
   const awayId = match.teams?.away?.id;
   if (!homeId || !awayId) return null;
 
-  // Quatro jogos recentes por equipa: amostra curta, mas contextualizada
-  // sem multiplicar chamadas desnecessariamente.
   const [homeFixtures, awayFixtures] = await Promise.all([
-    apiGet("https://v3.football.api-sports.io/fixtures?team=" + homeId + "&last=4&status=FT", key),
-    apiGet("https://v3.football.api-sports.io/fixtures?team=" + awayId + "&last=4&status=FT", key)
+    apiGet("https://v3.football.api-sports.io/fixtures?team=" + homeId + "&last=5&status=FT", key).catch(() => []),
+    apiGet("https://v3.football.api-sports.io/fixtures?team=" + awayId + "&last=5&status=FT", key).catch(() => [])
   ]);
   const fixtures = new Map();
   [...(homeFixtures || []), ...(awayFixtures || [])].forEach(item => {
     if (item.fixture?.id) fixtures.set(Number(item.fixture.id), item);
   });
   const recent = [...fixtures.values()]
-    .sort((a, b) => {
-      const dateDiff = new Date(b.fixture?.date || 0) - new Date(a.fixture?.date || 0);
-      return dateDiff || Number(a.fixture?.id || 0) - Number(b.fixture?.id || 0);
-    })
-    .slice(0, 8);
-  if (recent.length < 4) return null;
+    .sort((a, b) => new Date(b.fixture?.date || 0) - new Date(a.fixture?.date || 0))
+    .slice(0, 10);
+  if (!recent.length) return null;
 
   const samples = await Promise.all(recent.map(async item => {
+    const fullHome = numberOrNull(item.score?.fulltime?.home);
+    const fullAway = numberOrNull(item.score?.fulltime?.away);
+    const halfHome = numberOrNull(item.score?.halftime?.home);
+    const halfAway = numberOrNull(item.score?.halftime?.away);
+    let stats = [];
     try {
-      const data = await apiGet(
-        "https://v3.football.api-sports.io/fixtures/statistics?fixture=" + item.fixture.id,
-        key
-      );
-      const home = (data || []).find(row => Number(row.team?.id) === Number(item.teams?.home?.id));
-      const away = (data || []).find(row => Number(row.team?.id) === Number(item.teams?.away?.id));
-      const h = home?.statistics || [];
-      const a = away?.statistics || [];
-      const htHome = numberOrNull(item.score?.halftime?.home);
-      const htAway = numberOrNull(item.score?.halftime?.away);
-      return {
-        corners: [statNumber(h, "Corner Kicks"), statNumber(a, "Corner Kicks")],
-        cards: [statNumber(h, "Yellow Cards"), statNumber(a, "Yellow Cards")],
-        shots: [statNumber(h, "Total Shots"), statNumber(a, "Total Shots")],
-        onTarget: [statNumber(h, "Shots on Goal"), statNumber(a, "Shots on Goal")],
-        halfTime: htHome !== null && htAway !== null ? (htHome > htAway ? "1" : htHome < htAway ? "2" : "X") : null,
-        fullTime: numberOrNull(item.score?.fulltime?.home) !== null && numberOrNull(item.score?.fulltime?.away) !== null
-          ? [numberOrNull(item.score.fulltime.home), numberOrNull(item.score.fulltime.away)] : null
-      };
-    } catch {
-      return null;
-    }
+      stats = await apiGet("https://v3.football.api-sports.io/fixtures/statistics?fixture=" + item.fixture.id, key);
+    } catch {}
+    const h = (stats || []).find(row => Number(row.team?.id) === Number(item.teams?.home?.id))?.statistics || [];
+    const a = (stats || []).find(row => Number(row.team?.id) === Number(item.teams?.away?.id))?.statistics || [];
+    const total = (type) => {
+      const x = statNumber(h, type), y = statNumber(a, type);
+      return x !== null && y !== null ? x + y : null;
+    };
+    return {
+      goals: fullHome !== null && fullAway !== null ? [fullHome, fullAway] : null,
+      halfTime: halfHome !== null && halfAway !== null ? (halfHome > halfAway ? "1" : halfHome < halfAway ? "2" : "X") : null,
+      corners: total("Corner Kicks"),
+      cards: total("Yellow Cards"),
+      shots: total("Total Shots"),
+      onTarget: total("Shots on Goal")
+    };
   }));
 
   const valid = samples.filter(Boolean);
   const markets = [];
-  const addLine = (label, values, threshold, direction, minSample = 5) => {
+  const addBinary = (label, values, predicate) => {
     const observed = values.filter(value => value !== null && value !== undefined);
-    if (observed.length < minSample) return;
-    const hits = observed.filter(value => direction === "over" ? value > threshold : value < threshold).length;
-    const rate = Math.round(hits / observed.length * 100);
-    markets.push({ market: label, probability: rate, sample: observed.length, hits });
+    if (!observed.length) return;
+    const hits = observed.filter(predicate).length;
+    markets.push({ market: label, probability: Math.round(hits / observed.length * 100), sample: observed.length, hits });
   };
-  const totals = key => valid.map(row => row[key].every(v => v !== null) ? row[key][0] + row[key][1] : null);
-  addLine("Total de cantos: mais de 7,5", totals("corners"), 7.5, "over");
-  addLine("Total de cantos: mais de 6,5", totals("corners"), 6.5, "over");
-  addLine("Total de cartões amarelos: mais de 2,5", totals("cards"), 2.5, "over");
-  addLine("Total de cartões amarelos: menos de 5,5", totals("cards"), 5.5, "under");
-  addLine("Total de remates: mais de 19,5", totals("shots"), 19.5, "over");
-  addLine("Total de remates: menos de 31,5", totals("shots"), 31.5, "under");
-  addLine("Total de remates à baliza: mais de 6,5", totals("onTarget"), 6.5, "over");
-  addLine("Total de remates à baliza: menos de 12,5", totals("onTarget"), 12.5, "under");
+  const addLine = (label, values, threshold, direction) =>
+    addBinary(label, values, value => direction === "over" ? value > threshold : value < threshold);
 
-  const goalScores = valid.map(row => row.fullTime).filter(Boolean);
-  addLine("Total de golos: mais de 1,5", goalScores.map(score => score[0] + score[1]), 1.5, "over");
-  addLine("Total de golos: menos de 4,5", goalScores.map(score => score[0] + score[1]), 4.5, "under");
-  addLine("Ambas as equipas marcam: sim", goalScores.map(score => score[0] > 0 && score[1] > 0 ? 1 : 0), 0, "over");
+  const goals = valid.map(row => row.goals).filter(Boolean);
+  addBinary("Vitória da equipa da casa (1)", goals, score => score[0] > score[1]);
+  addBinary("Empate (X)", goals, score => score[0] === score[1]);
+  addBinary("Vitória da equipa visitante (2)", goals, score => score[0] < score[1]);
+  addBinary("Dupla hipótese 1X", goals, score => score[0] >= score[1]);
+  addBinary("Dupla hipótese X2", goals, score => score[1] >= score[0]);
+  addLine("Total de golos: mais de 0,5", goals.map(x => x[0] + x[1]), 0.5, "over");
+  addLine("Total de golos: mais de 1,5", goals.map(x => x[0] + x[1]), 1.5, "over");
+  addLine("Total de golos: menos de 4,5", goals.map(x => x[0] + x[1]), 4.5, "under");
+  addBinary("Ambas as equipas marcam: sim", goals, score => score[0] > 0 && score[1] > 0);
+  addLine("Total de cantos: mais de 6,5", valid.map(x => x.corners), 6.5, "over");
+  addLine("Total de cantos: mais de 7,5", valid.map(x => x.corners), 7.5, "over");
+  addLine("Total de cartões amarelos: mais de 2,5", valid.map(x => x.cards), 2.5, "over");
+  addLine("Total de cartões amarelos: menos de 5,5", valid.map(x => x.cards), 5.5, "under");
+  addLine("Total de remates: mais de 19,5", valid.map(x => x.shots), 19.5, "over");
+  addLine("Total de remates à baliza: mais de 6,5", valid.map(x => x.onTarget), 6.5, "over");
+
   const halfTimes = valid.map(row => row.halfTime).filter(Boolean);
-  if (halfTimes.length >= 5) {
-    ["1", "X", "2"].forEach(code => {
-      const hits = halfTimes.filter(value => value === code).length;
-      markets.push({
-        market: "Resultado ao intervalo: " + (code === "1" ? "equipa da casa" : code === "2" ? "equipa visitante" : "empate"),
-        probability: Math.round(hits / halfTimes.length * 100),
-        sample: halfTimes.length,
-        hits
-      });
-    });
-  }
+  addBinary("Resultado ao intervalo: vitória da equipa da casa", halfTimes, value => value === "1");
+  addBinary("Resultado ao intervalo: empate", halfTimes, value => value === "X");
+  addBinary("Resultado ao intervalo: vitória da equipa visitante", halfTimes, value => value === "2");
 
-  // Só considerar uma aposta quando a frequência histórica é elevada.
-  // Frequência observada não equivale a valor esperado: faltam odds do bookmaker.
-  markets.sort((a, b) =>
-    b.probability - a.probability ||
-    b.sample - a.sample ||
-    a.market.localeCompare(b.market, "pt-PT")
-  );
-  const best = markets.find(item => item.probability >= 80 && item.sample >= 5);
+  // A classificação privilegia taxa de acerto, mas desempata por amostra maior.
+  markets.sort((a, b) => b.probability - a.probability || b.sample - a.sample);
+  const best = markets.find(item => item.sample >= 5 && item.probability >= 50);
   return {
     sampleMatches: valid.length,
     evaluatedMarkets: markets,
     recommendation: best ? {
       ...best,
-      market: best.market,
-      reason: "Atingiu " + best.probability + "% nos últimos " + best.sample + " jogos analisados. Frequência histórica, não garantia nem prova de valor face às odds."
+      reason: "Melhor frequência observada entre os mercados avaliados (" + best.hits + "/" + best.sample + "). É histórico, não garantia nem valor esperado."
     } : {
-      market: "Sem aposta segura — não apostar",
+      market: "Sem aposta recomendada",
       probability: null,
-      reason: "Nenhum mercado atingiu o mínimo de 80% numa amostra de pelo menos cinco observações."
+      reason: "Não há amostra suficiente para distinguir um mercado com confiança."
     },
     excludedMarkets: [
-      { market: "Resultado exato", reason: "Variância demasiado elevada para ser tratado como aposta segura." },
-      { market: "Marcador do golo", reason: "Só deve ser avaliado com onze inicial confirmado e dados individuais suficientes; não é recomendado como mercado seguro." },
-      { market: "Primeiro pontapé de baliza", reason: "A API não disponibiliza histórico fiável deste evento." }
+      { market: "Resultado exato", reason: "Variância demasiado elevada." },
+      { market: "Marcador do golo", reason: "Depende de titulares, minutos e dados individuais." },
+      { market: "Primeiro pontapé de baliza", reason: "Não existe histórico fiável disponível." }
     ]
   };
 }
-
 
 async function liveMatchAnalysis(match, key) {
   const fixtureId = match.fixture?.id;
