@@ -84,7 +84,7 @@ export default async function handler(req, res) {
   const key = process.env.API_FOOTBALL_KEY;
   const fixture = req.query.fixture;
 
-  if (!key || !fixture || !/^\\d+$/.test(String(fixture))) {
+  if (!key || !fixture || !/^\d+$/.test(String(fixture))) {
     return res.status(400).json({ error: "Fixture inválido ou API não configurada" });
   }
 
