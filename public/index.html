@@ -42,12 +42,6 @@ button:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 8px
 button:active{transform:translateY(0)}
 button:disabled{opacity:.55;cursor:wait;transform:none}
 #searchButton{margin-top:17px;min-width:170px}
-#accumulatorButton{margin-top:17px;background:#242020;border-color:#654047;box-shadow:none}
-#accumulator-panel{margin:0 0 18px}
-.accumulator-pick{padding:13px 0;border-bottom:1px solid #303030}
-.accumulator-pick:last-child{border-bottom:0}
-.accumulator-pick strong{display:block;color:#ff6875;margin:3px 0}
-.accumulator-meta{font-size:11px;color:var(--muted)}
 #nationsLeagueButton{background:#241619;color:#ffdce0;border-color:#633039;box-shadow:none}
 .filter-groups{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
 .filter-group{border:1px solid #303030;border-radius:10px;background:#101010;overflow:hidden}
@@ -85,9 +79,8 @@ button:disabled{opacity:.55;cursor:wait;transform:none}
 .muted,small{color:var(--muted)}
 .prediction{padding:17px;background:linear-gradient(145deg,#251316,#151112);border:1px solid rgba(237,41,57,.3);border-radius:11px;margin:10px 0}
 .prediction h3{font-size:25px;color:#ff6875}
-.bet-suggestion{margin:14px 0;padding:14px;border:1px solid rgba(237,41,57,.4);border-radius:10px;background:rgba(120,18,31,.13)}
-.bet-suggestion strong{display:block;color:#ff6875;font-size:17px;margin:4px 0}
-.bet-suggestion small{display:inline-block;margin-top:5px;line-height:1.5}.analysis-section .metric small{font-size:11px}
+.market-indication{align-items:center}.market-indication>b{color:#ff6875;font-size:15px}.market-source{display:block;font-size:10px;margin-top:3px}.analysis-section h4{margin:14px 0 4px;color:#e8dfe0;font-size:12px}
+.analysis-section .metric small{font-size:11px}
 details:not(.filter-group){margin-top:14px;border-top:1px solid #303030;padding-top:11px}
 details:not(.filter-group)>summary{color:#ff6875;font-weight:700;cursor:pointer;padding:4px 0}
 details:not(.filter-group)>summary:hover{color:#fff}
@@ -122,8 +115,6 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       <select id="league" hidden aria-hidden="true"><option value="">Todas as competições</option></select>
     </div>
     <button id="searchButton" type="button">Pesquisar jogos <span aria-hidden="true">→</span></button>
-    <button id="accumulatorButton" type="button">Criar aposta múltipla</button>
-    <button id="newAccumulatorButton" type="button" class="secondary">Nova análise</button>
     <div class="filter-groups" aria-label="Atalhos para competições">
       <details class="filter-group">
         <summary>Ligas nacionais <span class="muted">Europa</span></summary>
@@ -154,10 +145,6 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       </details>
     </div>
     <p id="status"><small>Seleciona as datas para começar.</small></p>
-  </section>
-  <section class="card" id="accumulator-panel" hidden>
-    <h2 class="section-title">Aposta múltipla — seleções mais conservadoras</h2>
-    <div id="accumulator-content"></div>
   </section>
   <section class="workspace">
     <div class="card" id="games-panel">
@@ -516,8 +503,42 @@ function renderPredictions(data) {
   const percent = prediction.percent || {};
   const teams = item.teams || {};
   const comparison = item.comparison || {};
-  const suggestion = item.betManagerSuggestion || null;
   const fixtureId = item.fixture?.id;
+  const historicalMarkets = Array.isArray(item.marketAnalysis?.evaluatedMarkets)
+    ? item.marketAnalysis.evaluatedMarkets
+        .filter(m => m && m.market && Number(m.sample) >= 5 &&
+          Number.isFinite(Number(m.probability)) && Number(m.probability) >= 75)
+        .map(m => ({ ...m, sourceLabel: "Histórico recente", kind: "historical" }))
+    : [];
+  const supplierPercent = value => {
+    const n = Number(String(value ?? "").replace("%", "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  };
+  const hp = supplierPercent(percent.home);
+  const dp = supplierPercent(percent.draw);
+  const ap = supplierPercent(percent.away);
+  const supplierMarkets = [hp, dp, ap].every(v => v !== null) ? [
+    { market: "Vitória da equipa da casa (1)", probability: hp, sourceLabel: "Previsão do fornecedor", kind: "supplier" },
+    { market: "Empate (X)", probability: dp, sourceLabel: "Previsão do fornecedor", kind: "supplier" },
+    { market: "Vitória da equipa visitante (2)", probability: ap, sourceLabel: "Previsão do fornecedor", kind: "supplier" },
+    { market: "Dupla hipótese 1X", probability: hp + dp, sourceLabel: "Calculado a partir da previsão do fornecedor", kind: "supplier" },
+    { market: "Dupla hipótese X2", probability: dp + ap, sourceLabel: "Calculado a partir da previsão do fornecedor", kind: "supplier" }
+  ].filter(m => m.probability >= 65) : [];
+  const marketCategory = name => {
+    if (/golo|marcam|resultado|empate|vitória|hipótese|intervalo/i.test(name)) return "Golos e resultado";
+    if (/canto/i.test(name)) return "Cantos";
+    if (/cartão/i.test(name)) return "Cartões";
+    if (/remate|baliza|shot/i.test(name)) return "Remates";
+    return "Outros mercados";
+  };
+  const marketGroups = [...historicalMarkets, ...supplierMarkets]
+    .sort((a, b) => b.probability - a.probability)
+    .reduce((groups, market) => {
+      const category = marketCategory(market.market);
+      (groups[category] ||= []).push(market);
+      return groups;
+    }, {});
+  const marketCount = Object.values(marketGroups).reduce((sum, group) => sum + group.length, 0);
   const predictedHomeGoals = prediction.goals?.home ?? item.score?.home;
   const predictedAwayGoals = prediction.goals?.away ?? item.score?.away;
   const hasScore = predictedHomeGoals !== null && predictedHomeGoals !== undefined &&
@@ -529,15 +550,23 @@ function renderPredictions(data) {
       ? '<h3>' + safeText(predictedHomeGoals) + ' – ' + safeText(predictedAwayGoals) + '</h3>'
       : '<h3>' + safeText(winner) + '</h3>') +
     '<p>' + safeText(advice) + '</p>' +
-    (suggestion
-      ? '<div class="bet-suggestion"><span class="muted">ÚNICA APOSTA A CONSIDERAR</span><strong>' +
-        safeText(suggestion.market || "Sem aposta segura — não apostar") + '</strong>' +
-        (suggestion.probability !== undefined && suggestion.probability !== null ? '<span>Frequência histórica: ' + safeText(suggestion.probability) + '% (' + safeText(suggestion.hits ?? "—") + '/' + safeText(suggestion.sample ?? "—") + ' jogos)</span><br>' : '') +
-        '<small>' + safeText(suggestion.reason || "Sem evidência suficiente para recomendar uma aposta.") + '</small></div>'
-      : '<div class="bet-suggestion"><span class="muted">ÚNICA APOSTA A CONSIDERAR</span><strong>Sem aposta segura — não apostar</strong><small>Não existem dados suficientes para indicar um mercado.</small></div>') +
-    (item.marketAnalysis ? '<div class="analysis-section"><h3>Análise dos mercados</h3><p class="muted">Amostra: ' + safeText(item.marketAnalysis.sampleMatches) + ' jogos recentes das duas equipas. Só é elegível um mercado com pelo menos 80% de ocorrências e cinco observações.</p>' +
-      (item.marketAnalysis.evaluatedMarkets?.length ? '<details><summary>Ver mercados avaliados</summary>' + item.marketAnalysis.evaluatedMarkets.slice(0, 8).map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><b>' + safeText(market.probability) + '% <small>(' + safeText(market.hits) + '/' + safeText(market.sample) + ')</small></b></div>').join('') + '</details>' : '<p class="muted">Sem estatísticas históricas suficientes nos mercados de cantos, cartões e remates.</p>') +
-      '<details><summary>Mercados não recomendados como seguros</summary>' + (item.marketAnalysis.excludedMarkets || []).map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><small>' + safeText(market.reason) + '</small></div>').join('') + '</details></div>' : '') +
+    '<div class="analysis-section"><h3>Indicações por mercado</h3>' +
+      '<p class="muted">Mostramos várias opções no mesmo jogo, desde que tenham suporte nos dados. Histórico: mínimo de 5 jogos e frequência observada de 75%. Resultado 1X2: previsão do fornecedor, apresentada separadamente. Percentagens históricas não são probabilidades futuras nem garantias.</p>' +
+      (marketCount
+        ? Object.entries(marketGroups).map(([category, markets]) =>
+            '<h4>' + safeText(category) + '</h4>' +
+            markets.map(market =>
+              '<div class="metric market-indication"><span>' + safeText(market.market) +
+              '<small class="market-source">' + safeText(market.sourceLabel) +
+              (market.sample ? ' · ' + safeText(market.hits ?? "—") + '/' + safeText(market.sample) + ' jogos' : '') +
+              '</small></span><b>' + safeText(Math.round(market.probability)) + '%</b></div>'
+            ).join("")
+          ).join("")
+        : '<p class="muted">Ainda não há mercados com dados suficientes para uma indicação responsável. Não apostar é uma opção válida.</p>') +
+      (item.marketAnalysis?.excludedMarkets?.length
+        ? '<details><summary>Mercados que não avaliamos como seguros</summary>' +
+          item.marketAnalysis.excludedMarkets.map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><small>' + safeText(market.reason) + '</small></div>').join('') +
+          '</details>' : '') + '</div>' +
     '<p class="muted">Favorito: ' + safeText(winner) + '</p>' +
     (fixtureId ? '<p class="muted">Previsão para o jogo #' + safeText(fixtureId) + '</p>' : '') +
     '<div class="analysis-grid">' +
@@ -554,193 +583,6 @@ function renderPredictions(data) {
         ).join("")
       : '<p class="muted">Sem dados de comparação disponíveis.</p>') +
     '</details>';
-}
-
-async function createAccumulator(forceNew = false) {
-  const league = $("league").value;
-  const season = $("league").selectedOptions[0]?.dataset.season || "2026";
-  const from = $("from").value;
-  const to = $("to").value;
-  const button = $("accumulatorButton");
-  const panel = $("accumulator-panel");
-  const content = $("accumulator-content");
-  const cacheKey = "betmanager-accumulator-v4:" + [league, season, from, to].join("|");
-
-  if (window.betManagerAccumulatorRunning) return;
-  window.betManagerAccumulatorRunning = true;
-  try {
-    if (forceNew) localStorage.removeItem(cacheKey);
-    const saved = localStorage.getItem(cacheKey);
-    if (saved) {
-      const snapshot = JSON.parse(saved);
-      content.innerHTML = snapshot.html;
-      panel.hidden = false;
-      $("status").textContent = "A mostrar a múltipla guardada (" + snapshot.createdAt + "). Usa «Nova análise» para atualizar.";
-      window.betManagerAccumulatorRunning = false;
-      return;
-    }
-  } catch (error) {}
-
-  if (!league) {
-    $("status").textContent = "Seleciona primeiro uma liga ou competição nos atalhos.";
-    window.betManagerAccumulatorRunning = false;
-    return;
-  }
-  if (!from || !to || from > to) {
-    $("status").textContent = "Verifica as datas antes de criar a aposta múltipla.";
-    window.betManagerAccumulatorRunning = false;
-    return;
-  }
-
-  panel.hidden = false;
-  content.textContent = "A analisar todos os jogos do período e a escolher o mercado mais forte de cada encontro...";
-  button.disabled = true;
-  button.textContent = "A analisar todos os jogos...";
-
-  try {
-    const query = new URLSearchParams({ from, to, league, season });
-    const fixtureData = await api("/api/fixtures?" + query.toString());
-    const upcoming = (Array.isArray(fixtureData.results) ? fixtureData.results : [])
-      .filter(game => ["NS", "TBD"].includes(String(game.fixture?.status?.short || "").toUpperCase()));
-    const liveData = await api("/api/fixtures?live=all&league=" + encodeURIComponent(league) +
-      "&season=" + encodeURIComponent(season)).catch(() => ({ results: [] }));
-    const liveStatuses = ["1H", "HT", "2H", "ET", "BT", "P", "LIVE"];
-    const liveGames = (Array.isArray(liveData.results) ? liveData.results : [])
-      .filter(game => liveStatuses.includes(String(game.fixture?.status?.short || "").toUpperCase()))
-      .filter(game => {
-        const date = String(game.fixture?.date || "").slice(0, 10);
-        return date >= from && date <= to;
-      });
-
-    const byId = new Map();
-    upcoming.forEach(game => byId.set(Number(game.fixture?.id), { game, mode: "pre" }));
-    liveGames.forEach(game => byId.set(Number(game.fixture?.id), { game, mode: "live" }));
-    const allGames = [...byId.values()].sort((a, b) =>
-      new Date(a.game.fixture?.date || 0) - new Date(b.game.fixture?.date || 0)
-    );
-
-    if (!allGames.length) {
-      content.innerHTML = '<p class="muted">Não existem jogos por disputar ou em direto nesta competição e neste período.</p>';
-      try { localStorage.setItem(cacheKey, JSON.stringify({ html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT") })); } catch (error) {}
-      return;
-    }
-
-    const picks = new Array(allGames.length);
-    let cursor = 0;
-    async function worker() {
-      while (cursor < allGames.length) {
-        const index = cursor++;
-        const entry = allGames[index];
-        const game = entry.game;
-        const base = {
-          mode: entry.mode,
-          date: game.fixture?.date,
-          minute: game.fixture?.status?.elapsed,
-          score: { home: game.goals?.home ?? 0, away: game.goals?.away ?? 0 },
-          home: game.teams?.home?.name || "Casa",
-          away: game.teams?.away?.name || "Fora"
-        };
-        try {
-          const predictionData = await api("/api/predictions?fixture=" + encodeURIComponent(game.fixture.id));
-          const item = Array.isArray(predictionData.results) ? predictionData.results[0] : null;
-          if (entry.mode === "live") {
-            const live = item?.liveAnalysis;
-            const pick = live?.recommendation;
-            const probability = Number(pick?.impliedProbability);
-            const odd = Number(pick?.odd);
-            if (pick?.market && !/sem aposta|não apostar/i.test(pick.market) &&
-                Number.isFinite(probability) && Number.isFinite(odd) && odd > 1) {
-              picks[index] = { ...base, market: pick.market, probability, odd, bookmaker: pick.bookmaker || "", reason: pick.reason, available: true };
-            } else {
-              picks[index] = { ...base, market: "Sem aposta recomendada neste momento", available: false,
-                reason: pick?.reason || live?.note || "Não há odds e dados em direto suficientes para escolher um mercado." };
-            }
-          } else {
-            const markets = Array.isArray(item?.marketAnalysis?.evaluatedMarkets)
-              ? item.marketAnalysis.evaluatedMarkets.slice() : [];
-
-            // Acrescentar 1/X/2 e dupla hipótese a partir da previsão do fornecedor
-            // sempre que as percentagens oficiais estejam disponíveis.
-            const pct = item?.predictions?.percent || {};
-            const readPct = value => {
-              const n = Number(String(value ?? "").replace("%", "").replace(",", "."));
-              return Number.isFinite(n) ? n : null;
-            };
-            const homePct = readPct(pct.home);
-            const drawPct = readPct(pct.draw);
-            const awayPct = readPct(pct.away);
-            if ([homePct, drawPct, awayPct].every(value => value !== null)) {
-              markets.push(
-                { market: "Vitória da equipa da casa (1)", probability: homePct, sample: 0, source: "previsão do fornecedor" },
-                { market: "Empate (X)", probability: drawPct, sample: 0, source: "previsão do fornecedor" },
-                { market: "Vitória da equipa visitante (2)", probability: awayPct, sample: 0, source: "previsão do fornecedor" },
-                { market: "Dupla hipótese 1X", probability: homePct + drawPct, sample: 0, source: "previsão do fornecedor" },
-                { market: "Dupla hipótese X2", probability: awayPct + drawPct, sample: 0, source: "previsão do fornecedor" }
-              );
-            }
-
-            const best = markets
-              .filter(m => m && m.market && Number.isFinite(Number(m.probability)) &&
-                (Number(m.sample) >= 5 || m.source === "previsão do fornecedor"))
-              .sort((a, b) => Number(b.probability) - Number(a.probability) ||
-                Number(b.sample || 0) - Number(a.sample || 0))[0];
-            if (best) {
-              picks[index] = { ...base, market: best.market, probability: Number(best.probability),
-                hits: best.hits, sample: best.sample, source: best.source || "frequência histórica",
-                reason: best.source === "previsão do fornecedor"
-                  ? "Estimativa do fornecedor para o resultado do jogo."
-                  : "Melhor frequência entre os mercados avaliados para este jogo.",
-                available: true };
-            } else {
-              picks[index] = { ...base, market: "Sem dados suficientes para recomendar uma aposta", available: false,
-                reason: item?.marketAnalysis?.recommendation?.reason || predictionData?.message ||
-                  "Não foram recebidos dados estatísticos ou percentagens de previsão para este jogo." };
-            }
-          }
-        } catch (error) {
-          picks[index] = { ...base, market: "Análise indisponível — não apostar", available: false,
-            reason: error.message || "Falha ao consultar os dados deste jogo." };
-        }
-      }
-    }
-    await Promise.all([worker(), worker(), worker()]);
-    const approved = picks.filter(Boolean);
-    const selectedCount = approved.filter(pick => pick.available).length;
-
-    content.innerHTML =
-      '<p class="muted">Foram analisados ' + allGames.length + ' jogos desta competição no período. A múltipla inclui a melhor seleção encontrada em cada jogo; quando os dados não permitem uma escolha responsável, o jogo fica assinalado sem aposta.</p>' +
-      approved.map((pick, index) =>
-        '<div class="accumulator-pick"><span class="accumulator-meta">JOGO ' + (index + 1) +
-        (pick.mode === "live" ? ' · <b>EM DIRETO</b> · ' + safeText(pick.minute ?? "—") +
-          ' · Resultado: ' + safeText(pick.score.home) + '–' + safeText(pick.score.away)
-          : ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar")) +
-        '</span><b>' + safeText(pick.home) + ' – ' + safeText(pick.away) + '</b>' +
-        '<strong>' + safeText(pick.market) + '</strong>' +
-        (pick.available
-          ? (pick.mode === "live"
-            ? '<span class="accumulator-meta">Odd: ' + safeText(pick.odd) + ' · Probabilidade implícita: ' +
-              safeText(pick.probability) + '%' + (pick.bookmaker ? ' · ' + safeText(pick.bookmaker) : '') + '</span>'
-            : '<span class="accumulator-meta">Frequência histórica: ' + safeText(pick.probability) +
-              '% (' + safeText(pick.hits ?? "—") + '/' + safeText(pick.sample) + ' jogos)</span>')
-          : '<span class="accumulator-meta">' + safeText(pick.reason) + '</span>') +
-        '</div>'
-      ).join("") +
-      '<p class="muted">' + selectedCount + ' de ' + allGames.length +
-      ' jogos têm uma seleção calculável. Frequência histórica ou probabilidade implícita não é garantia de acerto nem prova de valor. Quanto mais jogos juntares, maior tende a ser o risco acumulado; confirma cada mercado e odd antes de apostar.</p>';
-
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify({
-        html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT"),
-        league, season, from, to, fixtureIds: allGames.map(entry => entry.game.fixture?.id)
-      }));
-    } catch (error) {}
-  } catch (error) {
-    content.innerHTML = '<p class="muted">Não foi possível criar a aposta múltipla: ' + safeText(error.message) + '</p>';
-  } finally {
-    button.disabled = false;
-    button.textContent = "Criar aposta múltipla";
-    window.betManagerAccumulatorRunning = false;
-  }
 }
 
 async function analyse(id) {
@@ -773,8 +615,6 @@ async function analyse(id) {
 }
 
 $("searchButton").addEventListener("click", loadFixtures);
-$("accumulatorButton").addEventListener("click", () => createAccumulator(false));
-$("newAccumulatorButton").addEventListener("click", () => createAccumulator(true));
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
 });
