@@ -657,19 +657,44 @@ async function createAccumulator(forceNew = false) {
             }
           } else {
             const markets = Array.isArray(item?.marketAnalysis?.evaluatedMarkets)
-              ? item.marketAnalysis.evaluatedMarkets : [];
+              ? item.marketAnalysis.evaluatedMarkets.slice() : [];
+
+            // Acrescentar 1/X/2 e dupla hipótese a partir da previsão do fornecedor
+            // sempre que as percentagens oficiais estejam disponíveis.
+            const pct = item?.predictions?.percent || {};
+            const readPct = value => {
+              const n = Number(String(value ?? "").replace("%", "").replace(",", "."));
+              return Number.isFinite(n) ? n : null;
+            };
+            const homePct = readPct(pct.home);
+            const drawPct = readPct(pct.draw);
+            const awayPct = readPct(pct.away);
+            if ([homePct, drawPct, awayPct].every(value => value !== null)) {
+              markets.push(
+                { market: "Vitória da equipa da casa (1)", probability: homePct, sample: 0, source: "previsão do fornecedor" },
+                { market: "Empate (X)", probability: drawPct, sample: 0, source: "previsão do fornecedor" },
+                { market: "Vitória da equipa visitante (2)", probability: awayPct, sample: 0, source: "previsão do fornecedor" },
+                { market: "Dupla hipótese 1X", probability: homePct + drawPct, sample: 0, source: "previsão do fornecedor" },
+                { market: "Dupla hipótese X2", probability: awayPct + drawPct, sample: 0, source: "previsão do fornecedor" }
+              );
+            }
+
             const best = markets
-              .filter(m => m && m.market && Number(m.sample) >= 5 && Number.isFinite(Number(m.probability)))
+              .filter(m => m && m.market && Number.isFinite(Number(m.probability)) &&
+                (Number(m.sample) >= 5 || m.source === "previsão do fornecedor"))
               .sort((a, b) => Number(b.probability) - Number(a.probability) ||
-                Number(b.sample) - Number(a.sample))[0];
+                Number(b.sample || 0) - Number(a.sample || 0))[0];
             if (best) {
               picks[index] = { ...base, market: best.market, probability: Number(best.probability),
-                hits: best.hits, sample: best.sample,
-                reason: "Melhor frequência entre os mercados avaliados para este jogo.", available: true };
+                hits: best.hits, sample: best.sample, source: best.source || "frequência histórica",
+                reason: best.source === "previsão do fornecedor"
+                  ? "Estimativa do fornecedor para o resultado do jogo."
+                  : "Melhor frequência entre os mercados avaliados para este jogo.",
+                available: true };
             } else {
               picks[index] = { ...base, market: "Sem dados suficientes para recomendar uma aposta", available: false,
                 reason: item?.marketAnalysis?.recommendation?.reason || predictionData?.message ||
-                  "Não foi possível avaliar mercados com uma amostra mínima de cinco jogos." };
+                  "Não foram recebidos dados estatísticos ou percentagens de previsão para este jogo." };
             }
           }
         } catch (error) {
