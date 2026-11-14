@@ -435,6 +435,12 @@ const CHALLENGE_TARGET = 1000;
 let challengeState = loadChallengeState();
 let challengeBestPick = null;
 
+function challengeFormatOdd(value) {
+  const odd = Number(value);
+  return Number.isFinite(odd) && odd > 0
+    ? odd.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "—";
+}
 function loadChallengeState() {
   try {
     const saved = JSON.parse(localStorage.getItem(CHALLENGE_STORAGE_KEY) || "null");
