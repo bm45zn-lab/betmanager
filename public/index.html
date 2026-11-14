@@ -1245,7 +1245,14 @@ function renderDailyBoard(data) {
   const root = $("dailyBoardPicks");
   const picks = Array.isArray(data?.picks) ? data.picks : [];
   if (!picks.length) {
-    root.innerHTML = '<p class="muted">Não foram encontradas seleções elegíveis para jogos de hoje. Não há boletim disponível neste momento.</p>';
+    const d = data?.diagnostics || {};
+    const reasons = [
+      Number(d.targetDateEvents || 0) + " jogos encontrados para amanhã",
+      Number(d.withoutBetclic || 0) + " sem odds Betclic",
+      Number(d.staleOdds || 0) + " com odds desatualizadas",
+      Number(d.noEligibleMarkets || 0) + " sem mercados completos dentro dos filtros"
+    ];
+    root.innerHTML = '<p class="muted">Não foi possível encontrar seleções elegíveis para amanhã.</p><p class="bank-note">' + reasons.map(safeText).join(" · ") + '. Se houver jogos sem odds atuais, tenta novamente mais tarde ou seleciona outras ligas.</p>';
     return;
   }
   root.innerHTML = picks.map((pick, index) => {
