@@ -193,10 +193,11 @@ function dailyCandidates(event, sport, now, targetDate) {
   return picks;
 }
 
-async function findDailyPicks(key, targetDate) {
+async function findDailyPicks(key, targetDate, requestedLeagues = []) {
   const sportsResponse = await providerGet("https://api.prop-line.com/v1/sports", key);
+  const requested = new Set(requestedLeagues);
   const sports = getCollection(sportsResponse.data, "sports")
-    .filter(item => item.active !== false && /^soccer_[a-z0-9_]+$/.test(String(item.key || "")));
+    .filter(item => item.active !== false && /^soccer_[a-z0-9_]+$/.test(String(item.key || "")) && (!requested.size || requested.has(item.key)));
   const now = Date.now();
   const candidates = [];
   let scanned = 0;
@@ -272,7 +273,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Data inválida.", build: "daily-betclic-board-2026-11-15" });
     }
     try {
-      return res.status(200).json(await findDailyPicks(key, targetDate));
+      const requestedLeagues = (url.searchParams.get("leagues") || "").split(",").map(value => value.trim()).filter(value => /^soccer_[a-z0-9_]+$/.test(value));
+      return res.status(200).json(await findDailyPicks(key, targetDate, requestedLeagues));
     } catch {
       return res.status(502).json({ error: "Não foi possível gerar o boletim de hoje com as odds da Betclic.", build: "daily-betclic-board-2026-11-15" });
     }
