@@ -545,14 +545,14 @@ function renderPredictions(data) {
     if (/ambas as equipas marcam/.test(name)) return 5;
     if (/cantos.*mais de 7,5/.test(name)) return 7;
     if (/cantos.*mais de 6,5/.test(name)) return 4;
-    if (/cartões amarelos.*mais de 2,5/.test(name)) return 4;
     if (/remates/.test(name)) return 4;
     if (/resultado ao intervalo/.test(name)) return 2;
     return 0;
   };
   const historicalMarkets = Array.isArray(item.marketAnalysis?.evaluatedMarkets)
     ? item.marketAnalysis.evaluatedMarkets
-        .filter(m => m && m.market && Number(m.sample) >= 5 &&
+        .filter(m => m && m.market && !/cartões|cards/i.test(m.market) &&
+          Number(m.sample) >= 5 &&
           Number.isFinite(Number(m.probability)) && Number(m.probability) >= 65)
         .map(m => ({
           ...m,
