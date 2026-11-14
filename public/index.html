@@ -42,6 +42,7 @@ small{color:#aabbb2}
 </div>
 <br>
 <button id="searchButton" type="button">Pesquisar jogos</button>
+<button id="nationsLeagueButton" type="button">Ver Liga das Nações</button>
 <p id="status"><small>Seleciona as datas para começar.</small></p>
 </div>
 
@@ -139,6 +140,23 @@ async function loadLeagues() {
   }
 }
 
+async function loadNationsLeague() {
+  const league = leagues.find(item => {
+    const name = String(item.name || "").toLocaleLowerCase("pt-PT");
+    return name.includes("nations league") || name.includes("liga das nações");
+  });
+
+  if (!league) {
+    $("status").textContent = "A Liga das Nações não foi encontrada na lista de competições carregadas.";
+    return;
+  }
+
+  $("leagueSearch").value = "";
+  renderLeagueOptions();
+  $("league").value = String(league.id);
+  await loadFixtures();
+}
+
 async function loadFixtures() {
   const from = $("from").value;
   const to = $("to").value;
@@ -217,6 +235,7 @@ async function analyse(id) {
 }
 
 $("searchButton").addEventListener("click", loadFixtures);
+$("nationsLeagueButton").addEventListener("click", loadNationsLeague);
 $("leagueSearch").addEventListener("input", renderLeagueOptions);
 loadLeagues();
 </script>
