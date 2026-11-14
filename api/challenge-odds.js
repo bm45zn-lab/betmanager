@@ -146,6 +146,106 @@ async function findBestPick(key) {
   return data;
 }
 
+function lisbonDate(value) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Lisbon", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date(value));
+  const part = type => parts.find(item => item.type === type)?.value || "";
+  return part("year") + "-" + part("month") + "-" + part("day");
+}
+
+function dailyCandidates(event, sport, now, targetDate) {
+  const kickoff = Date.parse(event?.commence_time || "");
+  if (!Number.isFinite(kickoff) || lisbonDate(kickoff) !== targetDate || kickoff <= now) return [];
+  const book = getCollection(event?.bookmakers, "bookmakers").find(item => item.key === "betclic_pt");
+  if (!book) return [];
+  const updatedAt = Date.parse(book.last_update || event.last_update || "");
+  if (!Number.isFinite(updatedAt) || now - updatedAt > 10 * 60 * 1000 || updatedAt > now + 60 * 1000) return [];
+
+  const picks = [];
+  for (const market of getCollection(book.markets, "markets")) {
+    const raw = getCollection(market.outcomes, "outcomes");
+    if (raw.length < 2) continue;
+    const outcomes = raw.map(outcome => ({ outcome, odds: decimalOdds(outcome) }));
+    // Não estimar probabilidades quando faltam preços para resultados do mercado.
+    if (outcomes.some(item => !item.odds || item.odds <= 1)) continue;
+    const overround = outcomes.reduce((sum, item) => sum + 1 / item.odds, 0);
+    if (!Number.isFinite(overround) || overround < 1 || overround > 1.10) continue;
+    for (const item of outcomes) {
+      const probability = (1 / item.odds) / overround;
+      picks.push({
+        sport_key: sport.key,
+        sport_title: sport.title || sport.key,
+        event_id: event.id,
+        home_team: event.home_team || "Casa",
+        away_team: event.away_team || "Fora",
+        commence_time: event.commence_time,
+        market: market.description || market.key || "Mercado",
+        selection: [item.outcome.name, item.outcome.description, item.outcome.point !== undefined ? String(item.outcome.point) : ""].filter(Boolean).join(" "),
+        odds: Number(item.odds.toFixed(3)),
+        market_probability: Number(probability.toFixed(4)),
+        overround: Number(overround.toFixed(4)),
+        updated_at: book.last_update || event.last_update,
+        confidence_label: probability >= 0.8 ? "Probabilidade implícita elevada" : probability >= 0.65 ? "Probabilidade implícita moderada" : "Probabilidade implícita mais baixa"
+      });
+    }
+  }
+  return picks;
+}
+
+async function findDailyPicks(key, targetDate) {
+  const sportsResponse = await providerGet("https://api.prop-line.com/v1/sports", key);
+  const sports = getCollection(sportsResponse.data, "sports")
+    .filter(item => item.active !== false && /^soccer_[a-z0-9_]+$/.test(String(item.key || "")));
+  const now = Date.now();
+  const candidates = [];
+  let scanned = 0;
+  let eventCount = 0;
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < sports.length) {
+      const sport = sports[cursor++];
+      try {
+        const url = new URL("https://api.prop-line.com/v1/sports/" + encodeURIComponent(sport.key) + "/odds");
+        url.searchParams.set("bookmakers", "betclic_pt");
+        url.searchParams.set("markets", "h2h,totals,spreads");
+        const response = await providerGet(url, key);
+        scanned++;
+        const events = getCollection(response.data, "events");
+        eventCount += events.length;
+        for (const event of events) candidates.push(...dailyCandidates(event, sport, now, targetDate));
+      } catch {
+        // Ignora competições indisponíveis e mantém as restantes.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(4, sports.length) }, () => worker()));
+
+  candidates.sort((a, b) => b.market_probability - a.market_probability || a.overround - b.overround);
+  const picks = [];
+  const seen = new Set();
+  for (const pick of candidates) {
+    const eventKey = String(pick.event_id || pick.home_team + "|" + pick.away_team);
+    if (seen.has(eventKey)) continue;
+    seen.add(eventKey);
+    picks.push(pick);
+    if (picks.length >= 10) break;
+  }
+  return {
+    date: targetDate,
+    timezone: "Europe/Lisbon",
+    picks,
+    scanned,
+    events: eventCount,
+    candidates: candidates.length,
+    generated_at: new Date().toISOString(),
+    build: "daily-betclic-board-2026-11-15",
+    methodology: "Ordenação pela probabilidade implícita normalizada das odds Betclic, com mercados completos e margem até 10%. Uma escolha por jogo.",
+    warning: "As probabilidades são inferidas das odds e não são garantias nem previsões independentes. Mesmo seleções com probabilidade elevada podem perder. A lista não constitui uma múltipla."
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Método não permitido", build: BUILD });
@@ -162,6 +262,18 @@ export default async function handler(req, res) {
   const url = new URL(req.url || "/", "https://betmanager-zeta.vercel.app");
   const action = url.searchParams.get("action");
   const sport = url.searchParams.get("sport");
+
+  if (action === "daily") {
+    const targetDate = url.searchParams.get("date") || lisbonDate(Date.now());
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDate)) {
+      return res.status(400).json({ error: "Data inválida.", build: "daily-betclic-board-2026-11-15" });
+    }
+    try {
+      return res.status(200).json(await findDailyPicks(key, targetDate));
+    } catch {
+      return res.status(502).json({ error: "Não foi possível gerar o boletim de hoje com as odds da Betclic.", build: "daily-betclic-board-2026-11-15" });
+    }
+  }
 
   if (action === "best") {
     try {
