@@ -23,13 +23,18 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: "A API-Football devolveu um erro", details: data.errors });
     }
 
-    const results = Array.isArray(data.response) ? data.response : [];
-    const mismatched = results.some(item => Number(item.fixture?.id) !== Number(fixture));
-    if (mismatched) {
-      return res.status(502).json({ error: "A API devolveu previsões de outro jogo." });
-    }
+    const received = Array.isArray(data.response) ? data.response : [];
+    // Nunca apresentar previsões de outro encontro. Se a API incluir registos
+    // inesperados, descarta-os e mantém apenas os que correspondem ao pedido.
+    const results = received.filter(item =>
+      Number(item.fixture?.id) === Number(fixture)
+    );
 
-    return res.status(200).json({ results, requestedFixture: Number(fixture) });
+    return res.status(200).json({
+      results,
+      requestedFixture: Number(fixture),
+      discarded: received.length - results.length
+    });
   } catch {
     return res.status(502).json({ error: "Falha de comunicação" });
   }
