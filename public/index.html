@@ -23,6 +23,10 @@ button:hover{filter:brightness(1.12);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
 button:disabled{opacity:.55;cursor:wait;transform:none}
 #nationsLeagueButton{background:#203d2e;color:#c8f4d9;border-color:#416b51;box-shadow:none}
+.quick-filters{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 4px}
+.quick-filters button{margin:0;background:#203d2e;color:#d8f5e2;border:1px solid #416b51;box-shadow:none;padding:10px 13px;font-size:13px}
+.quick-filters button:hover{background:#28513a}
+.quick-filters .filter-heading{width:100%;margin:8px 0 2px;color:#a5b9ac;font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.08em}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px}
 #status{color:var(--muted);font-size:14px;margin:14px 0 0}
 .match{padding:17px 5px;border-bottom:1px solid rgba(88,128,103,.25)}
@@ -74,7 +78,21 @@ summary:hover{color:#fff}
 </div>
 <br>
 <button id="searchButton" type="button">Pesquisar jogos</button>
-<button id="nationsLeagueButton" type="button">Ver Liga das Nações</button>
+<div class="quick-filters" aria-label="Atalhos para competições">
+  <span class="filter-heading">Ligas nacionais</span>
+  <button type="button" data-league-country="Portugal">Portugal</button>
+  <button type="button" data-league-country="Spain">Espanha</button>
+  <button type="button" data-league-country="France">França</button>
+  <button type="button" data-league-country="England">Inglaterra</button>
+  <button type="button" data-league-country="Italy">Itália</button>
+  <button type="button" data-league-country="Germany">Alemanha</button>
+  <button type="button" data-league-country="Brazil">Brasil</button>
+  <span class="filter-heading">Competições internacionais</span>
+  <button type="button" data-league-name="champions league">Champions League</button>
+  <button type="button" data-league-name="europa league">Liga Europa</button>
+  <button type="button" data-league-name="club world cup">Mundial de Clubes</button>
+  <button type="button" data-league-name="nations league">Liga das Nações</button>
+</div>
 <p id="status"><small>Seleciona as datas para começar.</small></p>
 </div>
 
@@ -172,20 +190,37 @@ async function loadLeagues() {
   }
 }
 
-async function loadNationsLeague() {
-  const league = leagues.find(item => {
-    const name = String(item.name || "").toLocaleLowerCase("pt-PT");
-    return name.includes("nations league") || name.includes("liga das nações");
+function normalizeLeagueText(value) {
+  return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLocaleLowerCase("pt-PT");
+}
+
+async function selectQuickLeague(button) {
+  if (!leagues.length) {
+    $("status").textContent = "As competições ainda estão a carregar. Tenta novamente dentro de momentos.";
+    return;
+  }
+
+  const country = button.dataset.leagueCountry;
+  const leagueName = button.dataset.leagueName;
+  let matches = leagues.filter(item => {
+    if (country) return normalizeLeagueText(item.country) === normalizeLeagueText(country);
+    return normalizeLeagueText(item.name).includes(normalizeLeagueText(leagueName));
   });
 
-  if (!league) {
-    $("status").textContent = "A Liga das Nações não foi encontrada na lista de competições carregadas.";
+  if (!matches.length) {
+    $("status").textContent = "A competição selecionada não está disponível na época carregada pela API.";
     return;
+  }
+
+  // Se a API devolver mais do que uma competição para o país, priorizar a primeira divisão.
+  if (country) {
+    const preferred = matches.find(item => /premier league|primeira liga|la liga|ligue 1|serie a|bundesliga/i.test(item.name));
+    if (preferred) matches = [preferred];
   }
 
   $("leagueSearch").value = "";
   renderLeagueOptions();
-  $("league").value = String(league.id);
+  $("league").value = String(matches[0].id);
   await loadFixtures();
 }
 
@@ -421,7 +456,9 @@ async function analyse(id) {
 }
 
 $("searchButton").addEventListener("click", loadFixtures);
-$("nationsLeagueButton").addEventListener("click", loadNationsLeague);
+document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
+  button.addEventListener("click", () => selectQuickLeague(button));
+});
 $("leagueSearch").addEventListener("input", renderLeagueOptions);
 loadLeagues();
 </script>
