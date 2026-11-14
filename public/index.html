@@ -553,7 +553,7 @@ function renderPredictions(data) {
   };
   const historicalMarkets = Array.isArray(item.marketAnalysis?.evaluatedMarkets)
     ? item.marketAnalysis.evaluatedMarkets
-        .filter(m => m && m.market && !/cartões|cards/i.test(m.market) &&
+        .filter(m => m && m.market && !/cartões|cards|total de remates|total shots/i.test(m.market) &&
           Number(m.sample) >= 5 &&
           Number.isFinite(Number(m.probability)) && Number(m.probability) >= 65)
         .map(m => ({
@@ -612,7 +612,7 @@ function renderPredictions(data) {
         : '<p class="muted">Sem dados suficientes para escolher uma aposta com critério. Não apostar é a indicação neste jogo.</p>') +
       (item.marketAnalysis?.excludedMarkets?.length
         ? '<details><summary>Mercados que não avaliamos como seguros</summary>' +
-          item.marketAnalysis.excludedMarkets.map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><small>' + safeText(market.reason) + '</small></div>').join('') +
+          item.marketAnalysis.excludedMarkets.filter(market => !/total de remates|total shots/i.test(market.market || "")).map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><small>' + safeText(market.reason) + '</small></div>').join('') +
           '</details>' : '') + '</div>' +
     '<p class="muted">Favorito: ' + safeText(winner) + '</p>' +
     (fixtureId ? '<p class="muted">Previsão para o jogo #' + safeText(fixtureId) + '</p>' : '') +
