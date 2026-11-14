@@ -511,8 +511,6 @@ function renderPredictions(data) {
       (recommendation.odd ? '<span>Odd: ' + safeText(recommendation.odd) + ' · Probabilidade implícita: ' + safeText(recommendation.impliedProbability) + '% · ' + safeText(recommendation.bookmaker || "") + '</span><br>' : '') +
       '<small>' + safeText(recommendation.reason || "Sem dados suficientes para recomendar uma aposta.") + '</small></div></div>' +
       '<div class="analysis-section"><h3>Estatísticas em direto</h3>' +
-      statCard("Remates", liveStats.home?.shots, liveStats.away?.shots) +
-      statCard("Remates à baliza", liveStats.home?.shotsOnTarget, liveStats.away?.shotsOnTarget) +
       statCard("Cantos", liveStats.home?.corners, liveStats.away?.corners) +
       statCard("Cartões amarelos", liveStats.home?.yellowCards, liveStats.away?.yellowCards) +
       statCard("Posse de bola", liveStats.home?.possession, liveStats.away?.possession) +
@@ -550,7 +548,6 @@ function renderPredictions(data) {
     if (/ambas as equipas marcam/.test(name)) return 5;
     if (/cantos.*mais de 7,5/.test(name)) return 7;
     if (/cantos.*mais de 6,5/.test(name)) return 4;
-    if (/remates/.test(name)) return 4;
     if (/resultado ao intervalo/.test(name)) return 2;
     return 0;
   };
