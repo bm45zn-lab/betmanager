@@ -1,0 +1,11 @@
+
+betmanager/
+├── api/
+│   ├── fixtures.js
+│   ├── statistics.js
+│   ├── predictions.js
+│   └── leagues.js
+├── public/
+│   └── index.html
+├── package.json
+└── .gitignore
