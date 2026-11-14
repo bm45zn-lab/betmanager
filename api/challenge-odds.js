@@ -154,45 +154,32 @@ function lisbonDate(value) {
   return part("year") + "-" + part("month") + "-" + part("day");
 }
 
-function dailyCandidates(event, sport, now, targetDate) {
+function dailyCandidates(event, sport, now, targetDate, diagnostics) {
   const kickoff = Date.parse(event?.commence_time || "");
   if (!Number.isFinite(kickoff) || lisbonDate(kickoff) !== targetDate || kickoff <= now) return [];
+  diagnostics.targetDateEvents++;
   const book = getCollection(event?.bookmakers, "bookmakers").find(item => item.key === "betclic_pt");
-  if (!book) return [];
+  if (!book) { diagnostics.withoutBetclic++; return []; }
   const updatedAt = Date.parse(book.last_update || event.last_update || "");
-  if (!Number.isFinite(updatedAt) || now - updatedAt > 10 * 60 * 1000 || updatedAt > now + 60 * 1000) return [];
-
+  if (!Number.isFinite(updatedAt) || now - updatedAt > 10 * 60 * 1000 || updatedAt > now + 60 * 1000) { diagnostics.staleOdds++; return []; }
   const picks = [];
+  let eligibleMarket = false;
   for (const market of getCollection(book.markets, "markets")) {
     const raw = getCollection(market.outcomes, "outcomes");
     if (raw.length < 2) continue;
     const outcomes = raw.map(outcome => ({ outcome, odds: decimalOdds(outcome) }));
-    // Não estimar probabilidades quando faltam preços para resultados do mercado.
     if (outcomes.some(item => !item.odds || item.odds <= 1)) continue;
     const overround = outcomes.reduce((sum, item) => sum + 1 / item.odds, 0);
     if (!Number.isFinite(overround) || overround < 1 || overround > 1.10) continue;
+    eligibleMarket = true;
     for (const item of outcomes) {
       const probability = (1 / item.odds) / overround;
-      picks.push({
-        sport_key: sport.key,
-        sport_title: sport.title || sport.key,
-        event_id: event.id,
-        home_team: event.home_team || "Casa",
-        away_team: event.away_team || "Fora",
-        commence_time: event.commence_time,
-        market: market.description || market.key || "Mercado",
-        selection: [item.outcome.name, item.outcome.description, item.outcome.point !== undefined ? String(item.outcome.point) : ""].filter(Boolean).join(" "),
-        odds: Number(item.odds.toFixed(3)),
-        market_probability: Number(probability.toFixed(4)),
-        overround: Number(overround.toFixed(4)),
-        updated_at: book.last_update || event.last_update,
-        confidence_label: probability >= 0.8 ? "Probabilidade implícita elevada" : probability >= 0.65 ? "Probabilidade implícita moderada" : "Probabilidade implícita mais baixa"
-      });
+      picks.push({ sport_key:sport.key, sport_title:sport.title || sport.key, event_id:event.id, home_team:event.home_team || "Casa", away_team:event.away_team || "Fora", commence_time:event.commence_time, market:market.description || market.key || "Mercado", selection:[item.outcome.name,item.outcome.description,item.outcome.point !== undefined ? String(item.outcome.point) : ""].filter(Boolean).join(" "), odds:Number(item.odds.toFixed(3)), market_probability:Number(probability.toFixed(4)), overround:Number(overround.toFixed(4)), updated_at:book.last_update || event.last_update, confidence_label:probability >= 0.8 ? "Probabilidade implícita elevada" : probability >= 0.65 ? "Probabilidade implícita moderada" : "Probabilidade implícita mais baixa" });
     }
   }
+  if (!eligibleMarket) diagnostics.noEligibleMarkets++;
   return picks;
 }
-
 async function findDailyPicks(key, targetDate, requestedLeagues = []) {
   const sportsResponse = await providerGet("https://api.prop-line.com/v1/sports", key);
   const requested = new Set(requestedLeagues);
@@ -200,6 +187,7 @@ async function findDailyPicks(key, targetDate, requestedLeagues = []) {
     .filter(item => item.active !== false && /^soccer_[a-z0-9_]+$/.test(String(item.key || "")) && (!requested.size || requested.has(item.key)));
   const now = Date.now();
   const candidates = [];
+  const diagnostics = { targetDateEvents: 0, withoutBetclic: 0, staleOdds: 0, noEligibleMarkets: 0 };
   let scanned = 0;
   let eventCount = 0;
   let cursor = 0;
@@ -215,7 +203,7 @@ async function findDailyPicks(key, targetDate, requestedLeagues = []) {
         scanned++;
         const events = getCollection(response.data, "events");
         eventCount += events.length;
-        for (const event of events) candidates.push(...dailyCandidates(event, sport, now, targetDate));
+        for (const event of events) candidates.push(...dailyCandidates(event, sport, now, targetDate, diagnostics));
       } catch {
         // Ignora competições indisponíveis e mantém as restantes.
       }
@@ -240,6 +228,7 @@ async function findDailyPicks(key, targetDate, requestedLeagues = []) {
     scanned,
     events: eventCount,
     candidates: candidates.length,
+    diagnostics,
     generated_at: new Date().toISOString(),
     build: "daily-betclic-board-2026-11-15",
     methodology: "Ordenação pela probabilidade implícita normalizada das odds Betclic, com mercados completos e margem até 10%. Uma escolha por jogo.",
