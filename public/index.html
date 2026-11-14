@@ -178,8 +178,19 @@ async function loadLeagues() {
   select.innerHTML = '<option value="">A carregar ligas...</option>';
 
   try {
-    const data = await api("/api/leagues?season=2026");
-    leagues = Array.isArray(data.results) ? data.results : [];
+    // Carrega a época atual e a anterior para incluir provas bienais,
+    // como o Mundial de Clubes, que pode não ter edição na época atual.
+    const [currentData, previousData] = await Promise.all([
+      api("/api/leagues?season=2026"),
+      api("/api/leagues?season=2025")
+    ]);
+    const currentLeagues = Array.isArray(currentData.results) ? currentData.results : [];
+    const previousInternational = (Array.isArray(previousData.results) ? previousData.results : [])
+      .filter(item => normalizeLeagueText(item.name).includes("club world cup"));
+    const merged = [...currentLeagues, ...previousInternational];
+    const unique = new Map();
+    merged.forEach(item => unique.set(String(item.id) + "-" + String(item.season), item));
+    leagues = [...unique.values()];
     renderLeagueOptions();
     if (!leagues.length) {
       $("status").textContent = "Não foram encontradas competições para a época selecionada.";
