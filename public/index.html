@@ -212,13 +212,13 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
   <section class="card challenge-manager" id="challenge-manager">
     <div class="challenge-heading">
       <div><div class="eyebrow">DESAFIO DE BANCA</div><h2 class="section-title">De 1 € a 1.000 €</h2>
-        <p class="muted">Uma aposta de cada vez, utilizando sempre 100% da banca disponível. Consulta a sugestão automática do dia e acompanha o progresso.</p></div>
+        <p class="muted">Simulador de progressão de banca. Cada etapa utiliza 100% do saldo do desafio e pode perder a banca inteira; não representa uma estratégia de baixo risco.</p></div>
       <div class="challenge-target"><span>Objetivo</span><strong>1.000,00 €</strong></div>
     </div>
     <div class="challenge-progress"><div><strong id="challengeBalance">1,00 €</strong><span id="challengeProgressText">0,1% concluído</span></div>
       <div class="challenge-track"><div id="challengeProgressBar"></div></div></div>
     <div class="challenge-panel">
-      <div class="challenge-panel-head"><div><h3>Escolha automática do dia</h3><p class="muted">Analisa jogos das competições disponíveis e procura uma aposta simples com odd entre 1,75 e 2,00.</p></div>
+      <div class="challenge-panel-head"><div><h3>Escolha automática do dia</h3><p class="muted">Filtra apostas simples por qualidade das odds e margem do mercado. Se os dados não forem suficientes, não apresenta recomendação.</p></div>
         <button type="button" id="challengeFindBest">Encontrar melhor aposta</button></div>
       <div id="challengeBestResult" class="muted">Ainda não foi feita uma análise para hoje.</div>
     </div>
@@ -226,7 +226,7 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       <div class="challenge-panel-head"><h3>Histórico do desafio</h3><button type="button" id="challengeReset" class="challenge-reset">Reiniciar desafio</button></div>
       <div id="challengeHistory" class="bank-history"><p class="muted">Ainda não existem etapas. Começa com 1,00 €.</p></div>
     </div>
-    <p class="bank-note">As odds são informativas e pré-jogo. Confirma sempre o preço no site da Betclic antes de apostar: as odds podem mudar ou deixar de estar disponíveis. Se perderes, a banca do desafio fica a zero. Isto é apenas um registo/simulador, não executa apostas.</p>
+    <p class="bank-note">As odds são informativas e pré-jogo. O ranking usa apenas preços da Betclic e não estima uma probabilidade independente. O desafio utiliza 100% da banca: uma única derrota elimina o saldo. Não é uma estratégia segura, não executa apostas e não deves usar dinheiro de que precises.</p>
   </section>
 
   <section class="card calendar-card" id="calendar">
@@ -489,25 +489,46 @@ function renderChallenge() {
 }
 function challengeDisplayBest(result) {
   const root = $("challengeBestResult");
-  if (!result || !result.recommendation) {
-    challengeBestPick = null;
-    root.innerHTML = '<p>Hoje não encontrei uma seleção simples dentro do intervalo de odds definido. A recomendação é não apostar.</p>';
+  const picks = [result?.recommendation, ...(Array.isArray(result?.alternatives) ? result.alternatives : [])].filter(Boolean);
+  challengeBestPick = picks[0] || null;
+
+  if (!picks.length) {
+    root.innerHTML = '<p><b>Sem aposta recomendada.</b> Não encontrei mercados que cumpram os filtros de qualidade. É preferível não apostar a forçar uma escolha.</p>' +
+      '<p class="bank-note">O filtro exige odds entre 1,75 e 2,00 e margem estimada do mercado até 8%. A ausência de sugestão não é um erro.</p>';
     return;
   }
-  const pick = result.recommendation;
-  challengeBestPick = pick;
-  const date = pick.commence_time ? new Date(pick.commence_time).toLocaleString("pt-PT") : "Hora por confirmar";
-  root.innerHTML = '<div class="bank-recommendation">' +
-    '<span class="muted">MELHOR OPÇÃO ENCONTRADA · APOSTA SIMPLES</span>' +
-    '<strong>' + safeText(pick.home_team + " – " + pick.away_team) + '</strong>' +
-    '<p>' + safeText(pick.sport_title || "Futebol") + ' · ' + safeText(date) + '</p>' +
-    '<p><b>' + safeText(pick.market) + ':</b> ' + safeText(pick.selection) + '</p>' +
-    '<p><b>Odd Betclic:</b> ' + challengeFormatOdd(pick.odds) + ' · <b>Probabilidade implícita estimada pelo mercado:</b> ' + (pick.market_probability * 100).toLocaleString("pt-PT", {maximumFractionDigits:1}) + '%</p>' +
-    '<p class="bank-note">Ranking baseado apenas nas odds da Betclic, com margem do mercado normalizada. Não é uma previsão independente nem garante lucro. Confirma a odd antes de apostar.</p>' +
-    '<button type="button" id="challengeRegisterBest" ' + (challengeBalance() <= 0 || challengeBalance() >= CHALLENGE_TARGET || challengeHasPending() ? 'disabled' : '') + '>Registar esta sugestão</button></div>';
-  $("challengeRegisterBest").addEventListener("click", () => challengeRegisterPick(pick));
+
+  const renderPick = (pick, index) => {
+    const date = pick.commence_time ? new Date(pick.commence_time).toLocaleString("pt-PT") : "Hora por confirmar";
+    const probability = Number(pick.market_probability);
+    const margin = Number(pick.overround);
+    const probabilityText = Number.isFinite(probability) ? (probability * 100).toLocaleString("pt-PT", {maximumFractionDigits:1}) + "%" : "—";
+    const marginText = Number.isFinite(margin) ? ((margin - 1) * 100).toLocaleString("pt-PT", {maximumFractionDigits:1}) + "%" : "—";
+    return '<div class="bank-recommendation">' +
+      '<span class="muted">' + (index === 0 ? 'MELHOR CLASSIFICADA PELO MERCADO' : 'ALTERNATIVA ' + index) + ' · APOSTA SIMPLES</span>' +
+      '<strong>' + safeText(pick.home_team + " – " + pick.away_team) + '</strong>' +
+      '<p>' + safeText(pick.sport_title || "Futebol") + ' · ' + safeText(date) + '</p>' +
+      '<p><b>' + safeText(pick.market) + ':</b> ' + safeText(pick.selection) + '</p>' +
+      '<p><b>Odd Betclic:</b> ' + challengeFormatOdd(pick.odds) + ' · <b>Probabilidade implícita sem margem:</b> ' + probabilityText + '</p>' +
+      '<p><b>Margem estimada do mercado:</b> ' + marginText + ' · ' + safeText(pick.confidence_label || "Filtro aplicado") + '</p>' +
+      '<p class="bank-note">A probabilidade é calculada apenas a partir das odds da Betclic. Não é uma previsão independente nem demonstra valor esperado positivo.</p>' +
+      '<button type="button" data-challenge-pick-index="' + index + '" ' + (challengeBalance() <= 0 || challengeBalance() >= CHALLENGE_TARGET || challengeHasPending() ? 'disabled' : '') + '>Registar esta seleção</button></div>';
+  };
+
+  root.innerHTML = '<p class="muted">Sugestões ordenadas pelo consenso implícito do mercado. São opções para análise, não garantias nem uma indicação de aposta segura.</p>' +
+    picks.map(renderPick).join("") +
+    '<p class="bank-note">' + safeText(result.methodology || "") + '</p>' +
+    '<p class="bank-note">' + safeText(result.warning || "Confirma sempre a odd atual na Betclic. As odds podem mudar.") + '</p>';
+
+  root.querySelectorAll("[data-challenge-pick-index]").forEach(button => {
+    button.addEventListener("click", () => {
+      const pick = picks[Number(button.dataset.challengePickIndex)];
+      if (pick) challengeRegisterPick(pick);
+    });
+  });
+
   if (result.scanned) {
-    root.insertAdjacentHTML("beforeend", '<p class="bank-note">Analisadas ' + Number(result.scanned).toLocaleString("pt-PT") + ' competições; ' + Number(result.events || 0).toLocaleString("pt-PT") + ' jogos com odds. Dados pré-jogo.</p>');
+    root.insertAdjacentHTML("beforeend", '<p class="bank-note">Analisadas ' + Number(result.scanned).toLocaleString("pt-PT") + ' competições; ' + Number(result.events || 0).toLocaleString("pt-PT") + ' jogos com odds; ' + Number(result.candidates || 0).toLocaleString("pt-PT") + ' seleções passaram os filtros.</p>');
   }
 }
 async function challengeFindBest() {
