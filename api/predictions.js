@@ -221,6 +221,94 @@ async function recentMarketAnalysis(match, key) {
   };
 }
 
+
+async function liveMatchAnalysis(match, key) {
+  const fixtureId = match.fixture?.id;
+  const [statistics, oddsData] = await Promise.all([
+    apiGet("https://v3.football.api-sports.io/fixtures/statistics?fixture=" + fixtureId, key).catch(() => []),
+    apiGet("https://v3.football.api-sports.io/odds/live?fixture=" + fixtureId, key).catch(() => [])
+  ]);
+
+  const teams = Array.isArray(statistics) ? statistics : [];
+  const homeStats = teams.find(team => Number(team.team?.id) === Number(match.teams?.home?.id))?.statistics || [];
+  const awayStats = teams.find(team => Number(team.team?.id) === Number(match.teams?.away?.id))?.statistics || [];
+  const readStat = (rows, name) => statNumber(rows, name);
+  const liveStats = {
+    home: {
+      shots: readStat(homeStats, "Total Shots"),
+      shotsOnTarget: readStat(homeStats, "Shots on Goal"),
+      corners: readStat(homeStats, "Corner Kicks"),
+      yellowCards: readStat(homeStats, "Yellow Cards"),
+      possession: readStat(homeStats, "Ball Possession")
+    },
+    away: {
+      shots: readStat(awayStats, "Total Shots"),
+      shotsOnTarget: readStat(awayStats, "Shots on Goal"),
+      corners: readStat(awayStats, "Corner Kicks"),
+      yellowCards: readStat(awayStats, "Yellow Cards"),
+      possession: readStat(awayStats, "Ball Possession")
+    }
+  };
+
+  const response = Array.isArray(oddsData) ? oddsData : [];
+  const available = [];
+  response.forEach(entry => {
+    const providers = entry.bookmakers || entry.odds || [];
+    providers.forEach(provider => {
+      const bets = provider.bets || [];
+      bets.forEach(bet => {
+        (bet.values || []).forEach(value => {
+          const odd = numberOrNull(value.odd);
+          if (odd && odd > 1 && value.suspended !== true && value.main !== false) {
+            available.push({
+              bookmaker: provider.name || "Operador não identificado",
+              market: bet.name || "Mercado ao vivo",
+              selection: value.value || "Seleção",
+              odd,
+              impliedProbability: Math.round(100 / odd),
+              blocked: entry.status?.blocked === true || entry.status?.stopped === true || entry.status?.finished === true
+            });
+          }
+        });
+      });
+    });
+  });
+
+  const eligible = available.filter(item => !item.blocked);
+  eligible.sort((a, b) => a.odd - b.odd);
+  const best = eligible.find(item => item.impliedProbability >= 75);
+  const elapsed = match.fixture?.status?.elapsed ?? null;
+  const liveStatus = match.fixture?.status?.short || "LIVE";
+  return {
+    mode: "live",
+    status: liveStatus,
+    minute: elapsed,
+    score: {
+      home: match.goals?.home ?? 0,
+      away: match.goals?.away ?? 0
+    },
+    teams: {
+      home: match.teams?.home?.name || "Casa",
+      away: match.teams?.away?.name || "Fora"
+    },
+    statistics: liveStats,
+    availableOdds: eligible.slice(0, 8),
+    recommendation: best ? {
+      market: best.market + " — " + best.selection,
+      bookmaker: best.bookmaker,
+      odd: best.odd,
+      impliedProbability: best.impliedProbability,
+      reason: "Odd disponível no mercado ao vivo. A probabilidade implícita é aproximada e não representa uma previsão independente nem garante valor."
+    } : {
+      market: "Sem aposta recomendada neste momento",
+      reason: eligible.length
+        ? "Nenhuma odd disponível atingiu o limiar conservador definido. Espera por mais dados ou não apostes."
+        : "Não foram recebidas odds ao vivo disponíveis para este jogo. Não vou inventar uma aposta."
+    },
+    note: "Estatísticas em direto podem ter atraso e variar conforme a cobertura da competição. Confirma sempre o mercado e a odd na tua casa de apostas."
+  };
+}
+
 export default async function handler(req, res) {
   const key = process.env.API_FOOTBALL_KEY;
   const fixture = req.query.fixture;
@@ -250,14 +338,31 @@ export default async function handler(req, res) {
     }
 
     const status = match.fixture?.status?.short || "TBD";
-    if (status !== "NS" && status !== "TBD") {
-      const message = ["FT", "AET", "PEN"].includes(status)
-        ? "Este jogo já terminou. Não há uma aposta a recomendar."
-        : "Este jogo já começou ou está com o estado '" + status + "'. Não uses uma previsão pré-jogo para apostar agora.";
+    const finishedStatuses = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO"];
+    const liveStatuses = ["1H", "HT", "2H", "ET", "BT", "P", "LIVE"];
+    if (liveStatuses.includes(status)) {
+      const liveAnalysis = await liveMatchAnalysis(match, key);
+      return res.status(200).json({
+        results: [{
+          fixture: { id: Number(fixture), status: match.fixture?.status, date: match.fixture?.date },
+          teams: {
+            home: { name: match.teams?.home?.name },
+            away: { name: match.teams?.away?.name }
+          },
+          goals: match.goals,
+          liveAnalysis,
+          betManagerSuggestion: liveAnalysis.recommendation
+        }],
+        requestedFixture: Number(fixture),
+        fixtureDate: match.fixture?.date || null,
+        source: "API-Football Live"
+      });
+    }
+    if (finishedStatuses.includes(status)) {
       return res.status(200).json({
         results: [],
         requestedFixture: Number(fixture),
-        message,
+        message: "Este jogo já terminou ou foi interrompido. Não há uma aposta ao vivo a recomendar.",
         fixtureStatus: status,
         fixtureDate: match.fixture?.date || null
       });
