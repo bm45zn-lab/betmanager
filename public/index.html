@@ -31,6 +31,9 @@ small{color:#aabbb2}
 <div class="grid">
 <label>Data inicial<br><input type="date" id="from"></label>
 <label>Data final<br><input type="date" id="to"></label>
+<label>Pesquisar liga por nome ou país<br>
+<input type="search" id="leagueSearch" placeholder="Ex.: Premier League, Portugal..." autocomplete="off">
+</label>
 <label>Competição<br>
 <select id="league">
 <option value="">Todas as competições</option>
@@ -90,6 +93,35 @@ async function api(path) {
   return data;
 }
 
+function renderLeagueOptions() {
+  const select = $("league");
+  const search = $("leagueSearch").value.trim().toLocaleLowerCase("pt-PT");
+  const previousValue = select.value;
+  const filtered = leagues.filter(league => {
+    const label = (String(league.name || "") + " " + String(league.country || ""))
+      .toLocaleLowerCase("pt-PT");
+    return label.includes(search);
+  });
+
+  select.replaceChildren();
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = search ? "Todas as competições (limpar pesquisa)" : "Todas as competições";
+  select.appendChild(allOption);
+
+  filtered.forEach(league => {
+    const option = document.createElement("option");
+    option.value = String(league.id);
+    option.dataset.season = String(league.season || 2026);
+    option.textContent = (league.name || "Competição") + " — " + (league.country || "");
+    select.appendChild(option);
+  });
+
+  if (filtered.some(league => String(league.id) === previousValue)) {
+    select.value = previousValue;
+  }
+}
+
 async function loadLeagues() {
   const select = $("league");
   select.innerHTML = '<option value="">A carregar ligas...</option>';
@@ -97,14 +129,10 @@ async function loadLeagues() {
   try {
     const data = await api("/api/leagues?season=2026");
     leagues = Array.isArray(data.results) ? data.results : [];
-
-    select.innerHTML =
-      '<option value="">Todas as competições</option>' +
-      leagues.map(l =>
-        '<option value="' + String(l.id) + '" data-season="' + String(l.season || 2026) + '">' +
-        String(l.name || "Competição") + " — " + String(l.country || "") +
-        "</option>"
-      ).join("");
+    renderLeagueOptions();
+    if (!leagues.length) {
+      $("status").textContent = "Não foram encontradas ligas para a época carregada.";
+    }
   } catch (error) {
     select.innerHTML = '<option value="">Ligas indisponíveis</option>';
     $("status").textContent = "Não foi possível carregar as ligas: " + error.message;
@@ -189,6 +217,7 @@ async function analyse(id) {
 }
 
 $("searchButton").addEventListener("click", loadFixtures);
+$("leagueSearch").addEventListener("input", renderLeagueOptions);
 loadLeagues();
 </script>
 </body>
