@@ -443,9 +443,11 @@ function renderComparisonValue(value) {
 }
 
 function renderPredictions(data) {
-  const item = Array.isArray(data) ? data[0] : null;
+  const results = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+  const item = results[0] || null;
   if (!item) {
-    return '<p class="muted">O fornecedor ainda não disponibilizou previsões para este jogo.</p>';
+    const message = data?.message || "Ainda não existem dados suficientes para calcular uma previsão deste jogo.";
+    return '<p class="muted">' + safeText(message) + '</p>';
   }
 
   const prediction = item.predictions || {};
@@ -493,7 +495,7 @@ async function analyse(id) {
         ? teams.map(renderTeamStatistics).join("")
         : '<p class="muted">As estatísticas ainda não estão disponíveis. Normalmente surgem durante ou após o jogo.</p>') +
       '</div><div class="analysis-section"><h3>Previsões</h3>' +
-      renderPredictions(predictionResults) +
+      renderPredictions(predictions) +
       '<p class="muted">As previsões são indicadores estatísticos, não garantias de resultado.</p></div>';
   } catch (error) {
     $("analysis").innerHTML = '<p>Não foi possível carregar a análise: ' +
