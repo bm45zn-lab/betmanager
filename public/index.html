@@ -67,14 +67,9 @@ summary:hover{color:#fff}
 <div class="grid">
 <label>Data inicial<br><input type="date" id="from"></label>
 <label>Data final<br><input type="date" id="to"></label>
-<label>Pesquisar competição por nome ou país<br>
-<input type="search" id="leagueSearch" placeholder="Ex.: Liga Portugal, Inglaterra..." autocomplete="off">
-</label>
-<label>Competição<br>
-<select id="league">
+<select id="league" hidden aria-hidden="true">
 <option value="">Todas as competições</option>
 </select>
-</label>
 </div>
 <br>
 <button id="searchButton" type="button">Pesquisar jogos</button>
@@ -86,6 +81,42 @@ summary:hover{color:#fff}
   <button type="button" data-league-country="England">Inglaterra</button>
   <button type="button" data-league-country="Italy">Itália</button>
   <button type="button" data-league-country="Germany">Alemanha</button>
+  <button type="button" data-league-country="Netherlands">Países Baixos</button>
+  <button type="button" data-league-country="Belgium">Bélgica</button>
+  <button type="button" data-league-country="Scotland">Escócia</button>
+  <button type="button" data-league-country="Turkey">Turquia</button>
+  <button type="button" data-league-country="Austria">Áustria</button>
+  <button type="button" data-league-country="Switzerland">Suíça</button>
+  <button type="button" data-league-country="Greece">Grécia</button>
+  <button type="button" data-league-country="Denmark">Dinamarca</button>
+  <button type="button" data-league-country="Norway">Noruega</button>
+  <button type="button" data-league-country="Sweden">Suécia</button>
+  <button type="button" data-league-country="Poland">Polónia</button>
+  <button type="button" data-league-country="Ukraine">Ucrânia</button>
+  <button type="button" data-league-country="Russia">Rússia</button>
+  <button type="button" data-league-country="Czech-Republic">Chéquia</button>
+  <button type="button" data-league-country="Croatia">Croácia</button>
+  <button type="button" data-league-country="Serbia">Sérvia</button>
+  <button type="button" data-league-country="Romania">Roménia</button>
+  <button type="button" data-league-country="Hungary">Hungria</button>
+  <button type="button" data-league-country="Bulgaria">Bulgária</button>
+  <button type="button" data-league-country="Slovakia">Eslováquia</button>
+  <button type="button" data-league-country="Slovenia">Eslovénia</button>
+  <button type="button" data-league-country="Cyprus">Chipre</button>
+  <button type="button" data-league-country="Israel">Israel</button>
+  <button type="button" data-league-country="Ireland">Irlanda</button>
+  <button type="button" data-league-country="Wales">País de Gales</button>
+  <button type="button" data-league-country="Northern-Ireland">Irlanda do Norte</button>
+  <button type="button" data-league-country="Finland">Finlândia</button>
+  <button type="button" data-league-country="Iceland">Islândia</button>
+  <button type="button" data-league-country="Albania">Albânia</button>
+  <button type="button" data-league-country="Armenia">Arménia</button>
+  <button type="button" data-league-country="Azerbaijan">Azerbaijão</button>
+  <button type="button" data-league-country="Georgia">Geórgia</button>
+  <button type="button" data-league-country="Moldova">Moldávia</button>
+  <button type="button" data-league-country="Montenegro">Montenegro</button>
+  <button type="button" data-league-country="Bosnia and Herzegovina">Bósnia e Herzegovina</button>
+  <button type="button" data-league-country="North Macedonia">Macedónia do Norte</button>
   <span class="filter-heading">Competições internacionais</span>
   <button type="button" data-league-name="champions league">Champions League</button>
   <button type="button" data-league-name="europa league">Liga Europa</button>
@@ -228,7 +259,6 @@ async function selectQuickLeague(button) {
     if (preferred) matches = [preferred];
   }
 
-  $("leagueSearch").value = "";
   renderLeagueOptions();
   $("league").value = String(matches[0].id);
   await loadFixtures();
@@ -471,7 +501,6 @@ $("searchButton").addEventListener("click", loadFixtures);
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
 });
-$("leagueSearch").addEventListener("input", renderLeagueOptions);
 loadLeagues();
 </script>
 </body>
