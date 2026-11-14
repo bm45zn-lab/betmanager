@@ -170,7 +170,10 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       </div>
     </div>
     <div class="bank-panel" style="margin-top:14px">
-      <h3>Histórico de apostas</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <h3 style="margin:0">Histórico de apostas</h3>
+        <button type="button" id="bankClearHistory" style="background:#292020;border-color:#633039;box-shadow:none">Limpar histórico</button>
+      </div>
       <div id="bankHistory" class="bank-history"><p class="muted">Ainda não existem apostas registadas.</p></div>
     </div>
     <p class="bank-note">Os registos ficam guardados neste navegador e dispositivo. Não são sincronizados com outros dispositivos nem enviados para uma casa de apostas.</p>
@@ -378,6 +381,13 @@ function initBankManager() {
   $("bankOdds").addEventListener("input", updateBankRecommendation);
   $("bankUseSuggestion").addEventListener("click", () => { $("bankStake").value = bankRecommendation().toFixed(2); });
   $("bankRegister").addEventListener("click", registerBankBet);
+  $("bankClearHistory").addEventListener("click", () => {
+    if (!bankState.bets.length) { alert("O histórico já está vazio."); return; }
+    if (!confirm("Queres apagar todo o histórico de apostas, incluindo as pendentes? A banca inicial e os fundos adicionados serão mantidos.")) return;
+    bankState.bets = [];
+    saveBankState();
+    renderBankManager();
+  });
   $("bankHistory").addEventListener("click", event => {
     const button = event.target.closest("[data-bank-action]");
     if (button) settleBankBet(button.dataset.bankId, button.dataset.bankAction);
