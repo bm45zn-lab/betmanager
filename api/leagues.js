@@ -5,6 +5,8 @@ export default async function handler(req, res) {
 
   const key = process.env.API_FOOTBALL_KEY;
   const season = req.query.season || "2026";
+  const search = req.query.search;
+  const countryFilter = req.query.country;
 
   if (!key) {
     return res.status(500).json({
@@ -87,6 +89,8 @@ export default async function handler(req, res) {
   try {
     const url = new URL("https://v3.football.api-sports.io/leagues");
     url.searchParams.set("season", season);
+    if (search) url.searchParams.set("search", String(search));
+    if (countryFilter) url.searchParams.set("country", String(countryFilter));
 
     const response = await fetch(url, {
       headers: { "x-apisports-key": key }
