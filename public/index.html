@@ -176,18 +176,13 @@ async function api(path) {
 
 function renderLeagueOptions() {
   const select = $("league");
-  const search = $("leagueSearch").value.trim().toLocaleLowerCase("pt-PT");
   const previousValue = select.value;
-  const filtered = leagues.filter(league => {
-    const label = (String(league.name || "") + " " + String(league.country || ""))
-      .toLocaleLowerCase("pt-PT");
-    return label.includes(search);
-  });
+  const filtered = leagues;
 
   select.replaceChildren();
   const allOption = document.createElement("option");
   allOption.value = "";
-  allOption.textContent = search ? "Todas as competições (limpar pesquisa)" : "Todas as competições";
+  allOption.textContent = "Todas as competições";
   select.appendChild(allOption);
 
   filtered.forEach(league => {
