@@ -218,6 +218,11 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     <div class="challenge-progress"><div><strong id="challengeBalance">1,00 €</strong><span id="challengeProgressText">0,1% concluído</span></div>
       <div class="challenge-track"><div id="challengeProgressBar"></div></div></div>
     <div class="challenge-panel">
+      <div class="challenge-panel-head"><div><h3>Escolha automática do dia</h3><p class="muted">Analisa jogos das competições disponíveis e procura uma aposta simples com odd entre 1,75 e 2,00.</p></div>
+        <button type="button" id="challengeFindBest">Encontrar melhor aposta</button></div>
+      <div id="challengeBestResult" class="muted">Ainda não foi feita uma análise para hoje.</div>
+    </div>
+    <div class="challenge-panel">
       <div class="challenge-panel-head"><div><h3>Odds Betclic Portugal</h3><p class="muted">Seleciona uma competição, um jogo e um mercado para consultar as odds disponíveis.</p></div>
         <button type="button" id="challengeLoadOdds">Atualizar odds</button></div>
       <div class="challenge-fields">
@@ -445,6 +450,7 @@ let challengeState = loadChallengeState();
 let challengeSports = [];
 let challengeEvents = [];
 let challengeSelectedEvent = null;
+let challengeBestPick = null;
 
 function loadChallengeState() {
   try {
@@ -599,23 +605,74 @@ async function challengeFetchOdds() {
     $("challengeLoadOdds").disabled = false;
   }
 }
-function challengeRegisterStep() {
-  const selected = challengeSelectedOutcome();
+function challengeDisplayBest(result) {
+  const root = $("challengeBestResult");
+  if (!result || !result.recommendation) {
+    challengeBestPick = null;
+    root.innerHTML = '<p>Hoje não encontrei uma seleção simples dentro do intervalo de odds definido. A recomendação é não apostar.</p>';
+    return;
+  }
+  const pick = result.recommendation;
+  challengeBestPick = pick;
+  const date = pick.commence_time ? new Date(pick.commence_time).toLocaleString("pt-PT") : "Hora por confirmar";
+  root.innerHTML = '<div class="bank-recommendation">' +
+    '<span class="muted">MELHOR OPÇÃO ENCONTRADA · APOSTA SIMPLES</span>' +
+    '<strong>' + safeText(pick.home_team + " – " + pick.away_team) + '</strong>' +
+    '<p>' + safeText(pick.sport_title || "Futebol") + ' · ' + safeText(date) + '</p>' +
+    '<p><b>' + safeText(pick.market) + ':</b> ' + safeText(pick.selection) + '</p>' +
+    '<p><b>Odd Betclic:</b> ' + challengeFormatOdd(pick.odds) + ' · <b>Probabilidade implícita estimada pelo mercado:</b> ' + (pick.market_probability * 100).toLocaleString("pt-PT", {maximumFractionDigits:1}) + '%</p>' +
+    '<p class="bank-note">Ranking baseado apenas nas odds da Betclic, com margem do mercado normalizada. Não é uma previsão independente nem garante lucro. Confirma a odd antes de apostar.</p>' +
+    '<button type="button" id="challengeRegisterBest" ' + (challengeBalance() <= 0 || challengeBalance() >= CHALLENGE_TARGET || challengeHasPending() ? 'disabled' : '') + '>Registar esta sugestão</button></div>';
+  $("challengeRegisterBest").addEventListener("click", () => challengeRegisterPick(pick));
+  if (result.scanned) {
+    root.insertAdjacentHTML("beforeend", '<p class="bank-note">Analisadas ' + Number(result.scanned).toLocaleString("pt-PT") + ' competições; ' + Number(result.events || 0).toLocaleString("pt-PT") + ' jogos com odds. Dados pré-jogo.</p>');
+  }
+}
+async function challengeFindBest() {
+  const button = $("challengeFindBest");
+  button.disabled = true;
+  button.textContent = "A analisar jogos…";
+  $("challengeBestResult").textContent = "A consultar odds das competições disponíveis. Pode demorar alguns segundos.";
+  challengeBestPick = null;
+  try {
+    const result = await api("/api/challenge-odds?action=best");
+    challengeDisplayBest(result);
+  } catch (error) {
+    $("challengeBestResult").textContent = "Não foi possível encontrar uma sugestão: " + error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Encontrar melhor aposta";
+  }
+}
+function challengeRegisterPick(pick) {
   const balance = challengeBalance();
-  if (!selected || balance <= 0 || balance >= CHALLENGE_TARGET || challengeHasPending()) return;
-  if (!confirm("Vais registar uma etapa com 100% da banca do desafio (" + euro(balance) + ") à odd " + challengeFormatOdd(selected.decimal) + ". A aposta é apenas registada no BetManager; não será colocada automaticamente. Continuar?")) return;
+  if (!pick || balance <= 0 || balance >= CHALLENGE_TARGET || challengeHasPending()) return;
+  if (!confirm("Registar " + pick.home_team + " – " + pick.away_team + " · " + pick.selection + " à odd " + challengeFormatOdd(pick.odds) + " com 100% da banca (" + euro(balance) + ")? O BetManager não coloca a aposta; tens de a confirmar manualmente na Betclic.")) return;
   challengeState.steps.push({
     date: new Date().toISOString(),
-    event: selected.event.home_team + " – " + selected.event.away_team,
-    market: selected.market.description || selected.market.key,
-    selection: (selected.outcome.name || "") + (selected.outcome.description ? " " + selected.outcome.description : ""),
-    odds: Number(selected.decimal.toFixed(4)),
+    event: pick.home_team + " – " + pick.away_team,
+    market: pick.market,
+    selection: pick.selection,
+    odds: Number(Number(pick.odds).toFixed(4)),
     stake: balance,
     status: "pending",
-    balanceAfter: null
+    balanceAfter: null,
+    source: "automatic-market-ranking"
   });
   saveChallengeState();
   renderChallenge();
+  challengeDisplayBest({recommendation:pick});
+}
+function challengeRegisterStep() {
+  const selected = challengeSelectedOutcome();
+  if (!selected) return;
+  challengeRegisterPick({
+    home_team: selected.event.home_team,
+    away_team: selected.event.away_team,
+    market: selected.market.description || selected.market.key,
+    selection: (selected.outcome.name || "") + (selected.outcome.description ? " " + selected.outcome.description : ""),
+    odds: selected.decimal
+  });
 }
 function challengeSettle(index, status) {
   const step = challengeState.steps[index];
@@ -632,6 +689,7 @@ function challengeSettle(index, status) {
   else if (challengeBalance() === 0) alert("A banca do desafio chegou a zero. Podes reiniciar para começar novamente com 1 €.");
 }
 function initChallenge() {
+  $("challengeFindBest").addEventListener("click", challengeFindBest);
   $("challengeSport").addEventListener("change", challengeFetchOdds);
   $("challengeLoadOdds").addEventListener("click", challengeFetchOdds);
   $("challengeEvent").addEventListener("change", challengeRenderMarkets);
