@@ -81,6 +81,7 @@ button:disabled{opacity:.55;cursor:wait;transform:none}
 .prediction h3{font-size:25px;color:#ff6875}
 .bet-suggestion{margin:14px 0;padding:14px;border:1px solid rgba(237,41,57,.4);border-radius:10px;background:rgba(120,18,31,.13)}
 .bet-suggestion strong{display:block;color:#ff6875;font-size:17px;margin:4px 0}
+.bet-suggestion small{display:inline-block;margin-top:5px;line-height:1.5}.analysis-section .metric small{font-size:11px}
 details:not(.filter-group){margin-top:14px;border-top:1px solid #303030;padding-top:11px}
 details:not(.filter-group)>summary{color:#ff6875;font-weight:700;cursor:pointer;padding:4px 0}
 details:not(.filter-group)>summary:hover{color:#fff}
@@ -492,11 +493,14 @@ function renderPredictions(data) {
       : '<h3>' + safeText(winner) + '</h3>') +
     '<p>' + safeText(advice) + '</p>' +
     (suggestion
-      ? '<div class="bet-suggestion"><span class="muted">Aposta sugerida</span><strong>' +
-        safeText(suggestion.market || "Sem aposta recomendada") + '</strong>' +
-        (suggestion.probability !== undefined ? '<span>Probabilidade estimada: ' + safeText(suggestion.probability) + '%</span><br>' : '') +
-        '<small>' + safeText(suggestion.reason || "Baseada nas probabilidades estimadas.") + '</small></div>'
-      : '<div class="bet-suggestion"><span class="muted">Aposta sugerida</span><strong>Sem aposta recomendada</strong><small>Não existem dados suficientes para indicar um mercado.</small></div>') +
+      ? '<div class="bet-suggestion"><span class="muted">ÚNICA APOSTA A CONSIDERAR</span><strong>' +
+        safeText(suggestion.market || "Sem aposta segura — não apostar") + '</strong>' +
+        (suggestion.probability !== undefined && suggestion.probability !== null ? '<span>Frequência histórica: ' + safeText(suggestion.probability) + '% (' + safeText(suggestion.hits ?? "—") + '/' + safeText(suggestion.sample ?? "—") + ' jogos)</span><br>' : '') +
+        '<small>' + safeText(suggestion.reason || "Sem evidência suficiente para recomendar uma aposta.") + '</small></div>'
+      : '<div class="bet-suggestion"><span class="muted">ÚNICA APOSTA A CONSIDERAR</span><strong>Sem aposta segura — não apostar</strong><small>Não existem dados suficientes para indicar um mercado.</small></div>') +
+    (item.marketAnalysis ? '<div class="analysis-section"><h3>Análise dos mercados</h3><p class="muted">Amostra: ' + safeText(item.marketAnalysis.sampleMatches) + ' jogos recentes das duas equipas. Só é elegível um mercado com pelo menos 80% de ocorrências e cinco observações.</p>' +
+      (item.marketAnalysis.evaluatedMarkets?.length ? '<details><summary>Ver mercados avaliados</summary>' + item.marketAnalysis.evaluatedMarkets.slice(0, 8).map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><b>' + safeText(market.probability) + '% <small>(' + safeText(market.hits) + '/' + safeText(market.sample) + ')</small></b></div>').join('') + '</details>' : '<p class="muted">Sem estatísticas históricas suficientes nos mercados de cantos, cartões e remates.</p>') +
+      '<details><summary>Mercados não recomendados como seguros</summary>' + (item.marketAnalysis.excludedMarkets || []).map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><small>' + safeText(market.reason) + '</small></div>').join('') + '</details></div>' : '') +
     '<p class="muted">Favorito: ' + safeText(winner) + '</p>' +
     (fixtureId ? '<p class="muted">Previsão para o jogo #' + safeText(fixtureId) + '</p>' : '') +
     '<div class="analysis-grid">' +
