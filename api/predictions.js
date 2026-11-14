@@ -259,7 +259,7 @@ async function liveMatchAnalysis(match, key) {
       bets.forEach(bet => {
         (bet.values || []).forEach(value => {
           const odd = numberOrNull(value.odd);
-          if (odd && odd > 1 && value.suspended !== true && value.main !== false) {
+          if (odd && odd > 1 && value.suspended !== true) {
             available.push({
               bookmaker: provider.name || "Operador não identificado",
               market: bet.name || "Mercado ao vivo",
