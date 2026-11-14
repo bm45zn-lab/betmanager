@@ -210,8 +210,10 @@ async function loadLeagues() {
       api("/api/leagues?season=2025")
     ]);
     const currentLeagues = Array.isArray(currentData.results) ? currentData.results : [];
+    // Mantém as provas internacionais da época anterior: algumas competições
+    // (por exemplo, o Mundial de Clubes) não têm edição todos os anos.
     const previousInternational = (Array.isArray(previousData.results) ? previousData.results : [])
-      .filter(item => normalizeLeagueText(item.name).includes("club world cup"));
+      .filter(item => /champions league|europa league|club world cup|nations league/i.test(item.name || ""));
     const merged = [...currentLeagues, ...previousInternational];
     const unique = new Map();
     merged.forEach(item => unique.set(String(item.id) + "-" + String(item.season), item));
@@ -238,10 +240,17 @@ async function selectQuickLeague(button) {
 
   const country = button.dataset.leagueCountry;
   const leagueName = button.dataset.leagueName;
+  const normalize = value => normalizeLeagueText(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   let matches = leagues.filter(item => {
-    if (country) return normalizeLeagueText(item.country) === normalizeLeagueText(country);
-    return normalizeLeagueText(item.name).includes(normalizeLeagueText(leagueName));
+    if (country) return normalize(item.country) === normalize(country);
+    const actualName = normalize(item.name);
+    const requestedName = normalize(leagueName);
+    return requestedName && actualName.includes(requestedName);
   });
+  // Quando a mesma prova existe em duas épocas, escolhe a edição mais recente.
+  matches.sort((a, b) => Number(b.season || 0) - Number(a.season || 0));
 
   if (!matches.length) {
     $("status").textContent = "A competição selecionada não está disponível na época carregada pela API.";
