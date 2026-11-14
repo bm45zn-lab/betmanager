@@ -479,7 +479,7 @@ function renderComparisonValue(value) {
 function bookmakerRulesNote() {
   const profile = $("bookmakerProfile")?.value || "betclic";
   if (profile === "betano") {
-    return '<div class="bookmaker-rules"><strong>Perfil Betano Portugal:</strong> o resultado correto é considerado ao fim dos 90 minutos, incluindo compensação, salvo indicação diferente no mercado. A Betano confirma que mercados estatísticos, como remates, podem depender de relatórios técnicos oficiais e demorar mais a liquidar. Para cartões, cantos e remates, confirma o período e a definição apresentados no próprio mercado antes de apostar; não assumimos regras que não estejam publicadas de forma clara.</div>';
+    return '<div class="bookmaker-rules"><strong>Perfil Betano Portugal:</strong> o resultado correto é considerado ao fim dos 90 minutos, incluindo compensação, salvo indicação diferente no mercado. Os mercados de total de remates e remates à baliza ficam ocultos neste perfil porque não confirmei que estejam disponíveis na oferta Betano Portugal. Para cartões e cantos, confirma o período e a definição apresentados no próprio mercado antes de apostar. A disponibilidade pode variar por jogo.</div>';
   }
   return '<div class="bookmaker-rules"><strong>Perfil Betclic Portugal:</strong> golos e cantos contam, por regra, os 90 minutos mais compensação, sem prolongamento nem desempate por penáltis. O total de remates à baliza pode incluir prolongamento, mas exclui penáltis. Para cartões e mercados específicos, confirma sempre as condições do mercado no boletim.</div>';
 }
@@ -550,7 +550,14 @@ function renderPredictions(data) {
     if (/remate|baliza|shot/i.test(name)) return "Remates";
     return "Outros mercados";
   };
-  const marketGroups = [...historicalMarkets, ...supplierMarkets]
+  const bookmakerProfile = $("bookmakerProfile")?.value || "betclic";
+  // Betano PT não deve receber sugestões de mercados de total de remates
+  // sem confirmação de que esses mercados estão efetivamente disponíveis.
+  const compatibleHistoricalMarkets = historicalMarkets.filter(market => {
+    if (bookmakerProfile !== "betano") return true;
+    return !/total de remates|remates totais|remates à baliza|shots on target|total shots/i.test(market.market);
+  });
+  const marketGroups = [...compatibleHistoricalMarkets, ...supplierMarkets]
     .sort((a, b) => b.probability - a.probability)
     .reduce((groups, market) => {
       const category = marketCategory(market.market);
