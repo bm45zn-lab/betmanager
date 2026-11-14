@@ -180,8 +180,6 @@ async function recentMarketAnalysis(match, key) {
   addBinary("Ambas as equipas marcam: sim", goals, score => score[0] > 0 && score[1] > 0);
   addLine("Total de cantos: mais de 6,5", valid.map(x => x.corners), 6.5, "over");
   addLine("Total de cantos: mais de 7,5", valid.map(x => x.corners), 7.5, "over");
-  addLine("Total de cartões amarelos: mais de 2,5", valid.map(x => x.cards), 2.5, "over");
-  addLine("Total de cartões amarelos: menos de 5,5", valid.map(x => x.cards), 5.5, "under");
   addLine("Total de remates: mais de 19,5", valid.map(x => x.shots), 19.5, "over");
   addLine("Total de remates à baliza: mais de 6,5", valid.map(x => x.onTarget), 6.5, "over");
 
