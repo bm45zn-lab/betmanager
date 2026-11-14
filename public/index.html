@@ -473,6 +473,31 @@ function renderPredictions(data) {
     return '<p class="muted">' + safeText(message) + '</p>';
   }
 
+  if (item.liveAnalysis) {
+    const live = item.liveAnalysis;
+    const recommendation = live.recommendation || {};
+    const statCard = (label, home, away) =>
+      '<div class="metric"><span>' + safeText(label) + '</span><b>' + safeText(home ?? "—") + ' · ' + safeText(away ?? "—") + '</b></div>';
+    const liveStats = live.statistics || {};
+    const odds = Array.isArray(live.availableOdds) ? live.availableOdds : [];
+    return '<div class="prediction"><p class="muted">ANÁLISE EM DIRETO · ' + safeText(live.minute !== null && live.minute !== undefined ? live.minute + "'" : live.status) + '</p>' +
+      '<h3>' + safeText(live.score?.home ?? 0) + ' – ' + safeText(live.score?.away ?? 0) + '</h3>' +
+      '<p>' + safeText(live.teams?.home || "Casa") + ' · ' + safeText(live.teams?.away || "Fora") + '</p>' +
+      '<div class="bet-suggestion"><span class="muted">MELHOR OPÇÃO DISPONÍVEL — NÃO É GARANTIA</span><strong>' + safeText(recommendation.market || "Sem aposta recomendada neste momento") + '</strong>' +
+      (recommendation.odd ? '<span>Odd: ' + safeText(recommendation.odd) + ' · Probabilidade implícita: ' + safeText(recommendation.impliedProbability) + '% · ' + safeText(recommendation.bookmaker || "") + '</span><br>' : '') +
+      '<small>' + safeText(recommendation.reason || "Sem dados suficientes para recomendar uma aposta.") + '</small></div></div>' +
+      '<div class="analysis-section"><h3>Estatísticas em direto</h3>' +
+      statCard("Remates", liveStats.home?.shots, liveStats.away?.shots) +
+      statCard("Remates à baliza", liveStats.home?.shotsOnTarget, liveStats.away?.shotsOnTarget) +
+      statCard("Cantos", liveStats.home?.corners, liveStats.away?.corners) +
+      statCard("Cartões amarelos", liveStats.home?.yellowCards, liveStats.away?.yellowCards) +
+      statCard("Posse de bola", liveStats.home?.possession, liveStats.away?.possession) +
+      '</div>' +
+      '<div class="analysis-section"><h3>Odds ao vivo disponíveis</h3>' +
+      (odds.length ? odds.map(odd => '<div class="metric"><span>' + safeText(odd.market) + ' · ' + safeText(odd.selection) + '<small> · ' + safeText(odd.bookmaker) + '</small></span><b>' + safeText(odd.odd) + '</b></div>').join("") : '<p class="muted">A API não devolveu odds ao vivo para este encontro.</p>') +
+      '<p class="muted">' + safeText(live.note || "") + '</p></div>';
+  }
+
   const prediction = item.predictions || {};
   const winner = prediction.winner?.name || "Sem favorito definido";
   const advice = prediction.advice || "Sem recomendação disponível.";
