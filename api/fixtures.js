@@ -1,11 +1,10 @@
-const BUILD = "fixtures-query-debug-2026-11-14";
+const BUILD = "fixtures-url-object-2026-11-14";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Método não permitido", build: BUILD });
   }
 
-  // Vercel fornece req.url com o caminho e a query string.
   const requestUrl = new URL(req.url || "/", "https://betmanager-zeta.vercel.app");
   const from = requestUrl.searchParams.get("from") || req.query?.from;
   const to = requestUrl.searchParams.get("to") || req.query?.to;
@@ -28,23 +27,17 @@ export default async function handler(req, res) {
     });
   }
 
-  // Construção explícita da query string para evitar ambiguidades no envio.
-  const query = new URLSearchParams();
-  query.append("from", String(from));
-  query.append("to", String(to));
-  query.append("timezone", "Europe/Lisbon");
-  if (league) query.append("league", String(league));
-  if (season) query.append("season", String(season));
-
-  const upstreamUrl = "https://v3.football.api-sports.io/fixtures?" + query.toString();
+  const upstreamUrl = new URL("https://v3.football.api-sports.io/fixtures");
+  upstreamUrl.searchParams.set("from", String(from));
+  upstreamUrl.searchParams.set("to", String(to));
+  upstreamUrl.searchParams.set("timezone", "Europe/Lisbon");
+  if (league) upstreamUrl.searchParams.set("league", String(league));
+  if (season) upstreamUrl.searchParams.set("season", String(season));
 
   try {
     const response = await fetch(upstreamUrl, {
       method: "GET",
-      headers: {
-        "x-apisports-key": key,
-        "Accept": "application/json"
-      },
+      headers: { "x-apisports-key": key },
       cache: "no-store"
     });
 
@@ -58,7 +51,7 @@ export default async function handler(req, res) {
         diagnostic: {
           build: BUILD,
           receivedByBetManager: { from, to, timezone: "Europe/Lisbon" },
-          sentQuery: query.toString(),
+          sentQuery: upstreamUrl.searchParams.toString(),
           upstreamStatus: response.status
         }
       });
