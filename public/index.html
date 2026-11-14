@@ -317,9 +317,11 @@ async function loadFixtures() {
     }
 
     const data = await api("/api/fixtures?" + query.toString());
-    const games = Array.isArray(data.results) ? data.results : [];
+    const finishedStatuses = new Set(["FT", "AET", "PEN", "AWD", "WO"]);
+    const games = (Array.isArray(data.results) ? data.results : [])
+      .filter(game => !finishedStatuses.has(String(game.fixture?.status?.short || "").toUpperCase()));
 
-    $("status").textContent = games.length + " jogos encontrados";
+    $("status").textContent = games.length + " jogos por disputar ou em direto";
     $("games").innerHTML = games.length
       ? games.map(game => {
           const fixtureId = Number(game.fixture?.id);
