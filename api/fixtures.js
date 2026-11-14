@@ -16,6 +16,32 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Chave API não configurada na Vercel", build: BUILD });
   }
 
+  const live = requestUrl.searchParams.get("live") || req.query?.live;
+  if (live === "all") {
+    try {
+      const upstreamUrl = new URL("https://v3.football.api-sports.io/fixtures");
+      upstreamUrl.searchParams.set("live", "all");
+      upstreamUrl.searchParams.set("timezone", "Europe/Lisbon");
+      const response = await fetch(upstreamUrl, {
+        method: "GET",
+        headers: { "x-apisports-key": key },
+        cache: "no-store"
+      });
+      const data = await response.json();
+      const errors = data.errors || {};
+      if (!response.ok || Object.keys(errors).length) {
+        return res.status(502).json({ error: "API-Football recusou o pedido de jogos em direto", details: errors, build: BUILD });
+      }
+      const results = (data.response || []).filter(game =>
+        (!league || String(game.league?.id) === String(league)) &&
+        (!season || String(game.league?.season) === String(season))
+      );
+      return res.status(200).json({ results, count: results.length, live: true, build: BUILD });
+    } catch (error) {
+      return res.status(502).json({ error: "Erro ao consultar jogos em direto", build: BUILD });
+    }
+  }
+
   if (!from || !to || String(from) > String(to)) {
     return res.status(400).json({
       error: "Datas inválidas ou em falta",
