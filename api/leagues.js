@@ -14,58 +14,16 @@ export default async function handler(req, res) {
 
   // Primeiras divisões europeias: nomes oficiais usados pela API-Football.
   const firstDivisions = {
-    Albania: ["Kategoria Superiore"],
-    Andorra: ["Primera Divisió"],
-    Armenia: ["Premier League"],
-    Austria: ["Bundesliga"],
-    Azerbaijan: ["Premier League"],
-    Belarus: ["Premier League"],
-    Belgium: ["Jupiler Pro League", "First Division A"],
-    "Bosnia and Herzegovina": ["Premijer Liga"],
-    Bulgaria: ["First League"],
-    Croatia: ["HNL", "1. HNL"],
-    Cyprus: ["1. Division"],
-    "Czech-Republic": ["Czech Liga", "First League"],
-    Denmark: ["Superliga"],
     England: ["Premier League"],
-    Estonia: ["Meistriliiga"],
-    "Faroe-Islands": ["Meistaradeildin"],
-    Finland: ["Veikkausliiga"],
-    France: ["Ligue 1"],
-    Georgia: ["Erovnuli Liga"],
-    Germany: ["Bundesliga"],
-    Gibraltar: ["Premier Division"],
-    Greece: ["Super League 1"],
-    Hungary: ["NB I"],
-    Iceland: ["Úrvalsdeild"],
-    Ireland: ["Premier Division"],
-    Israel: ["Ligat Ha'al", "Ligat HaAl"],
-    Kosovo: ["Superliga"],
-    Latvia: ["Virsliga"],
-    Lithuania: ["A Lyga"],
-    Luxembourg: ["National Division"],
-    Malta: ["Premier League"],
-    Moldova: ["Super Liga", "Divizia Națională"],
-    Montenegro: ["First League"],
-    Netherlands: ["Eredivisie"],
-    "North Macedonia": ["First League"],
-    "Northern-Ireland": ["Premiership"],
-    Norway: ["Eliteserien"],
-    Poland: ["Ekstraklasa"],
-    Portugal: ["Primeira Liga", "Liga Portugal"],
-    Romania: ["Liga I", "SuperLiga"],
-    Russia: ["Premier League"],
-    "San-Marino": ["Campionato"],
-    Scotland: ["Premiership"],
-    Serbia: ["Super Liga"],
-    Slovakia: ["Super Liga"],
-    Slovenia: ["PrvaLiga"],
     Spain: ["La Liga", "Primera División"],
-    Sweden: ["Allsvenskan"],
-    Switzerland: ["Super League"],
-    Turkey: ["Süper Lig"],
-    Ukraine: ["Premier League"],
-    Wales: ["Premier League"]
+    France: ["Ligue 1"],
+    Germany: ["Bundesliga"],
+    Italy: ["Serie A"],
+    Portugal: ["Primeira Liga", "Liga Portugal"],
+    Netherlands: ["Eredivisie"],
+    Belgium: ["Jupiler Pro League", "First Division A"],
+    Scotland: ["Premiership"],
+    Turkey: ["Süper Lig"]
   };
 
   const normalize = value => String(value || "")
@@ -75,11 +33,8 @@ export default async function handler(req, res) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-  const internationalCompetition = /\b(world cup|club world cup|champions league|europa league|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|gold cup|concacaf|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|qualifiers)\b/i;
-  const internationalRegions = new Set([
-    "World", "Europe", "South America", "Africa",
-    "Asia", "North America", "Oceania"
-  ]);
+  const internationalCompetition = /\\b(world cup|club world cup|champions league|europa league|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|world cup qualifiers)\\b/i;
+  const excludedConfederationCompetition = /\\b(concacaf|gold cup)\\b/i;
 
   try {
     const url = new URL("https://v3.football.api-sports.io/leagues");
@@ -109,7 +64,8 @@ export default async function handler(req, res) {
       // As competições continentais podem surgir com "World", "Europe" ou
       // outro país/região no campo country. O nome oficial é o identificador
       // mais fiável para estas quatro provas.
-      const isInternational = internationalCompetition.test(name);
+      const isInternational = internationalCompetition.test(name) &&
+        !excludedConfederationCompetition.test(name);
 
       // Só a primeira divisão de cada país europeu.
       const countryKey = country.replace(/\s+/g, "-");
@@ -121,12 +77,7 @@ export default async function handler(req, res) {
           return normalizedName === target || normalizedName.startsWith(target + " ");
         });
 
-      // No Brasil, mostrar apenas o campeonato principal da Série A.
-      const isBrazilianSerieA = normalizedCountry === "brazil" &&
-        normalize(type) === "league" &&
-        /^(serie a|brasileirao serie a|campeonato brasileiro serie a)$/.test(normalizedName);
-
-      return isInternational || isEuropeanFirstDivision || isBrazilianSerieA;
+      return isInternational || isEuropeanFirstDivision;
     }).map(item => ({
       id: item.league.id,
       name: item.league.name,
