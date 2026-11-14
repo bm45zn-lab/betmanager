@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-  const internationalCompetition = /\b(world cup|world cup qualification|world cup qualifiers|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|gold cup|concacaf|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|qualifiers)\b/i;
+  const internationalCompetition = /\\b(world cup|club world cup|champions league|europa league|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|gold cup|concacaf|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|qualifiers)\\b/i;
   const internationalRegions = new Set([
     "World", "Europe", "South America", "Africa",
     "Asia", "North America", "Oceania"
