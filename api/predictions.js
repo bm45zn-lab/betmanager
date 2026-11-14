@@ -152,7 +152,9 @@ async function recentMarketAnalysis(match, key) {
         cards: [statNumber(h, "Yellow Cards"), statNumber(a, "Yellow Cards")],
         shots: [statNumber(h, "Total Shots"), statNumber(a, "Total Shots")],
         onTarget: [statNumber(h, "Shots on Goal"), statNumber(a, "Shots on Goal")],
-        halfTime: htHome !== null && htAway !== null ? (htHome > htAway ? "1" : htHome < htAway ? "2" : "X") : null
+        halfTime: htHome !== null && htAway !== null ? (htHome > htAway ? "1" : htHome < htAway ? "2" : "X") : null,
+        fullTime: numberOrNull(item.score?.fulltime?.home) !== null && numberOrNull(item.score?.fulltime?.away) !== null
+          ? [numberOrNull(item.score.fulltime.home), numberOrNull(item.score.fulltime.away)] : null
       };
     } catch {
       return null;
@@ -178,6 +180,10 @@ async function recentMarketAnalysis(match, key) {
   addLine("Total de remates à baliza: mais de 6,5", totals("onTarget"), 6.5, "over");
   addLine("Total de remates à baliza: menos de 12,5", totals("onTarget"), 12.5, "under");
 
+  const goalScores = valid.map(row => row.fullTime).filter(Boolean);
+  addLine("Total de golos: mais de 1,5", goalScores.map(score => score[0] + score[1]), 1.5, "over");
+  addLine("Total de golos: menos de 4,5", goalScores.map(score => score[0] + score[1]), 4.5, "under");
+  addLine("Ambas as equipas marcam: sim", goalScores.map(score => score[0] > 0 && score[1] > 0 ? 1 : 0), 0, "over");
   const halfTimes = valid.map(row => row.halfTime).filter(Boolean);
   if (halfTimes.length >= 5) {
     ["1", "X", "2"].forEach(code => {
