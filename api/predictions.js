@@ -272,7 +272,7 @@ export default async function handler(req, res) {
       const results = validPredictions.map(item => ({
         ...item,
         marketAnalysis,
-        betManagerSuggestion: marketAnalysis?.recommendation || bettingSuggestion(item.predictions)
+        betManagerSuggestion: marketAnalysis?.recommendation || { market: "Sem aposta segura — não apostar", reason: "Não foi possível obter uma amostra histórica suficiente para avaliar os mercados." }
       }));
       return res.status(200).json({
         results,
@@ -317,7 +317,7 @@ export default async function handler(req, res) {
 
     estimate.fixture.id = Number(fixture);
     estimate.marketAnalysis = marketAnalysis;
-    estimate.betManagerSuggestion = marketAnalysis?.recommendation || bettingSuggestion(estimate.predictions);
+    estimate.betManagerSuggestion = marketAnalysis?.recommendation || { market: "Sem aposta segura — não apostar", reason: "Não foi possível obter uma amostra histórica suficiente para avaliar os mercados." };
     return res.status(200).json({
       results: [estimate],
       requestedFixture: Number(fixture),
