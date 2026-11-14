@@ -563,7 +563,7 @@ async function createAccumulator() {
   const button = $("accumulatorButton");
   const panel = $("accumulator-panel");
   const content = $("accumulator-content");
-  const cacheKey = "betmanager-accumulator-v1:" + [league, season, from, to].join("|");
+  const cacheKey = "betmanager-accumulator-v2:" + [league, season, from, to].join("|");
 
   // Congelar a primeira análise para esta liga e intervalo: cliques repetidos
   // apresentam exatamente a mesma múltipla, sem voltar a consultar a API.
@@ -599,8 +599,20 @@ async function createAccumulator() {
       .filter(game => ["NS", "TBD"].includes(String(game.fixture?.status?.short || "").toUpperCase()))
       .sort((a, b) => new Date(a.fixture?.date || 0) - new Date(b.fixture?.date || 0));
 
-    if (!upcoming.length) {
-      content.innerHTML = '<p class="muted">Não há jogos por começar nesta competição e período.</p>';
+    // Acrescentar também os jogos que estão efetivamente em direto na mesma liga.
+    const liveData = await api("/api/fixtures?live=all&league=" + encodeURIComponent(league) +
+      "&season=" + encodeURIComponent(season)).catch(() => ({ results: [] }));
+    const liveGames = (Array.isArray(liveData.results) ? liveData.results : [])
+      .filter(game => ["1H", "HT", "2H", "ET", "BT", "P", "LIVE"].includes(
+        String(game.fixture?.status?.short || "").toUpperCase()
+      ));
+    const allGames = [
+      ...upcoming.map(game => ({ game, mode: "pre" })),
+      ...liveGames.map(game => ({ game, mode: "live" }))
+    ];
+
+    if (!allGames.length) {
+      content.innerHTML = '<p class="muted">Não há jogos por começar nem jogos em direto nesta competição e período.</p>';
       try { localStorage.setItem(cacheKey, content.innerHTML); } catch (error) {}
       return;
     }
@@ -608,28 +620,58 @@ async function createAccumulator() {
     const candidates = [];
     let cursor = 0;
     async function worker() {
-      while (cursor < upcoming.length) {
-        const game = upcoming[cursor++];
+      while (cursor < allGames.length) {
+        const entry = allGames[cursor++];
+        const game = entry.game;
         try {
           const predictionData = await api("/api/predictions?fixture=" + encodeURIComponent(game.fixture.id));
           const item = Array.isArray(predictionData.results) ? predictionData.results[0] : null;
-          const analysis = item?.marketAnalysis;
-          const pick = analysis?.recommendation || item?.betManagerSuggestion;
-          const probability = Number(pick?.probability);
-          const sample = Number(pick?.sample);
-          if (pick && pick.market && !/sem aposta|não apostar/i.test(pick.market) &&
-              Number.isFinite(probability) && probability >= 80 &&
-              Number.isFinite(sample) && sample >= 5) {
-            candidates.push({
-              date: game.fixture?.date,
-              home: game.teams?.home?.name || "Casa",
-              away: game.teams?.away?.name || "Fora",
-              market: pick.market,
-              probability,
-              hits: pick.hits,
-              sample,
-              reason: pick.reason
-            });
+          if (entry.mode === "live") {
+            const live = item?.liveAnalysis;
+            const pick = live?.recommendation;
+            const probability = Number(pick?.impliedProbability);
+            const odd = Number(pick?.odd);
+            const stats = live?.statistics;
+            const hasLiveStats = [stats?.home?.shots, stats?.away?.shots,
+              stats?.home?.shotsOnTarget, stats?.away?.shotsOnTarget,
+              stats?.home?.corners, stats?.away?.corners].some(value => value !== null && value !== undefined);
+            if (pick && pick.market && !/sem aposta|não apostar/i.test(pick.market) &&
+                Number.isFinite(probability) && probability >= 80 &&
+                Number.isFinite(odd) && odd > 1 && hasLiveStats) {
+              candidates.push({
+                mode: "live",
+                date: game.fixture?.date,
+                minute: live.minute,
+                score: live.score,
+                home: game.teams?.home?.name || "Casa",
+                away: game.teams?.away?.name || "Fora",
+                market: pick.market,
+                probability,
+                odd,
+                bookmaker: pick.bookmaker || "",
+                reason: pick.reason
+              });
+            }
+          } else {
+            const analysis = item?.marketAnalysis;
+            const pick = analysis?.recommendation || item?.betManagerSuggestion;
+            const probability = Number(pick?.probability);
+            const sample = Number(pick?.sample);
+            if (pick && pick.market && !/sem aposta|não apostar/i.test(pick.market) &&
+                Number.isFinite(probability) && probability >= 80 &&
+                Number.isFinite(sample) && sample >= 5) {
+              candidates.push({
+                mode: "pre",
+                date: game.fixture?.date,
+                home: game.teams?.home?.name || "Casa",
+                away: game.teams?.away?.name || "Fora",
+                market: pick.market,
+                probability,
+                hits: pick.hits,
+                sample,
+                reason: pick.reason
+              });
+            }
           }
         } catch (error) {
           // Um jogo sem dados não invalida os restantes candidatos.
@@ -637,7 +679,11 @@ async function createAccumulator() {
       }
     }
     await Promise.all([worker(), worker(), worker()]);
-    candidates.sort((a, b) => b.probability - a.probability || b.sample - a.sample);
+    candidates.sort((a, b) =>
+      b.probability - a.probability ||
+      (a.mode === b.mode ? 0 : a.mode === "live" ? -1 : 1) ||
+      b.date?.localeCompare(a.date || "") || 0
+    );
     const selected = candidates;
 
     if (!selected.length) {
@@ -648,16 +694,22 @@ async function createAccumulator() {
 
     content.innerHTML =
       '<p class="muted">Competição selecionada · ' + safeText(selected.length) +
-      ' seleções aprovadas após análise individual. Todos os jogos elegíveis do período foram incluídos. Apenas jogos por começar.</p>' +
+      ' seleções aprovadas após análise individual, incluindo jogos por começar e em direto quando cumprem os critérios.</p>' +
       selected.map((pick, index) =>
         '<div class="accumulator-pick"><span class="accumulator-meta">SELEÇÃO ' + (index + 1) +
-        ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar") +
+        (pick.mode === "live" ? ' · <b>EM DIRETO</b> · ' + safeText(pick.minute ?? "—") +
+          "' · Resultado: " + safeText(pick.score?.home ?? "—") + "–" + safeText(pick.score?.away ?? "—")
+          : ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar")) +
         '</span><b>' + safeText(pick.home) + ' – ' + safeText(pick.away) + '</b>' +
         '<strong>' + safeText(pick.market) + '</strong>' +
-        '<span class="accumulator-meta">Frequência histórica: ' + safeText(pick.probability) +
-        '% (' + safeText(pick.hits ?? "—") + '/' + safeText(pick.sample) + ' jogos)</span></div>'
+        (pick.mode === "live"
+          ? '<span class="accumulator-meta">Odd: ' + safeText(pick.odd) + ' · Probabilidade implícita: ' +
+            safeText(pick.probability) + '%' + (pick.bookmaker ? ' · ' + safeText(pick.bookmaker) : '') + '</span>'
+          : '<span class="accumulator-meta">Frequência histórica: ' + safeText(pick.probability) +
+            '% (' + safeText(pick.hits ?? "—") + '/' + safeText(pick.sample) + ' jogos)</span>') +
+        '</div>'
       ).join("") +
-      '<p class="muted">Critério conservador, não garantia: cada seleção é avaliada separadamente com dados históricos. Não calculo odd combinada nem valor esperado sem odds reais da casa de apostas. Mesmo seleções com frequência elevada podem falhar.</p>';
+      '<p class="muted">Critério conservador, não garantia. Nos jogos em direto, só entram odds com probabilidade implícita mínima de 80% e estatísticas atuais disponíveis; isso não prova valor esperado. Nos jogos futuros, exigem-se pelo menos 80% de frequência histórica em cinco observações. Confirma sempre as odds na tua casa de apostas.</p>';
     try { localStorage.setItem(cacheKey, content.innerHTML); } catch (error) {}
   } catch (error) {
     content.innerHTML = '<p class="muted">Não foi possível criar a aposta múltipla: ' + safeText(error.message) + '</p>';
