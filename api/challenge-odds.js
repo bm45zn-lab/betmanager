@@ -187,7 +187,7 @@ async function findDailyPicks(key, targetDate, requestedLeagues = []) {
     .filter(item => item.active !== false && /^soccer_[a-z0-9_]+$/.test(String(item.key || "")) && (!requested.size || requested.has(item.key)));
   const now = Date.now();
   const candidates = [];
-  const diagnostics = { targetDateEvents: 0, withoutBetclic: 0, staleOdds: 0, noEligibleMarkets: 0 };
+  const diagnostics = { sportsAvailable: sports.length, failedCompetitions: 0, targetDateEvents: 0, withoutBetclic: 0, staleOdds: 0, noEligibleMarkets: 0 };
   let scanned = 0;
   let eventCount = 0;
   let cursor = 0;
@@ -205,7 +205,7 @@ async function findDailyPicks(key, targetDate, requestedLeagues = []) {
         eventCount += events.length;
         for (const event of events) candidates.push(...dailyCandidates(event, sport, now, targetDate, diagnostics));
       } catch {
-        // Ignora competições indisponíveis e mantém as restantes.
+        diagnostics.failedCompetitions++;
       }
     }
   }
@@ -230,7 +230,7 @@ async function findDailyPicks(key, targetDate, requestedLeagues = []) {
     candidates: candidates.length,
     diagnostics,
     generated_at: new Date().toISOString(),
-    build: "daily-betclic-board-2026-11-15",
+    build: "daily-betclic-board-diagnostics-2026-11-15",
     methodology: "Ordenação pela probabilidade implícita normalizada das odds Betclic, com mercados completos e margem até 10%. Uma escolha por jogo.",
     warning: "As probabilidades são inferidas das odds e não são garantias nem previsões independentes. Mesmo seleções com probabilidade elevada podem perder. A lista não constitui uma múltipla."
   };
