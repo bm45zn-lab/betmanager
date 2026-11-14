@@ -23,10 +23,14 @@ function estimateFromTeamStats(homeStats, awayStats, homeName, awayName) {
   const expectedHome = Math.max(0.15, Math.min(4, (homeScored + awayConceded) / 2));
   const expectedAway = Math.max(0.15, Math.min(4, (awayScored + homeConceded) / 2));
   let homeWin = 0, draw = 0, awayWin = 0;
+  let mostLikelyScore = { home: 0, away: 0, probability: -1 };
 
   for (let h = 0; h <= 8; h++) {
     for (let a = 0; a <= 8; a++) {
       const probability = poisson(expectedHome, h) * poisson(expectedAway, a);
+      if (probability > mostLikelyScore.probability) {
+        mostLikelyScore = { home: h, away: a, probability };
+      }
       if (h > a) homeWin += probability;
       else if (h === a) draw += probability;
       else awayWin += probability;
@@ -55,7 +59,8 @@ function estimateFromTeamStats(homeStats, awayStats, homeName, awayName) {
     teams: { home: { name: homeName }, away: { name: awayName } },
     predictions: {
       winner: { name: best === 1 ? "Sem favorito claro" : names[best] },
-      advice: "Estimativa BetManager baseada nas médias de golos casa/fora e distribuição de Poisson. Não é uma previsão oficial da API.",
+      goals: { home: String(mostLikelyScore.home), away: String(mostLikelyScore.away) },
+      advice: "Resultado provável estimado a partir das médias de golos casa/fora. É uma estimativa estatística, não uma certeza.",
       percent
     },
     comparison: {
