@@ -625,15 +625,49 @@ function renderPredictions(data) {
     '</details>';
 }
 
+const PREDICTION_CACHE_TTL = 30 * 60 * 1000;
+
+async function getStablePredictions(id) {
+  const cacheKey = "betmanager-prediction-" + id;
+  let cached = null;
+  try {
+    cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+  } catch {}
+
+  const now = Date.now();
+  const cachedDate = cached?.fixtureDate ? new Date(cached.fixtureDate).getTime() : NaN;
+  const isFutureFixture = Number.isFinite(cachedDate) && cachedDate > now;
+  if (cached?.data && isFutureFixture && now - Number(cached.savedAt) < PREDICTION_CACHE_TTL) {
+    return { data: cached.data, savedAt: cached.savedAt, cached: true };
+  }
+
+  const data = await api("/api/predictions?fixture=" + encodeURIComponent(id));
+  const result = Array.isArray(data.results) ? data.results[0] : null;
+  // Nunca congelar uma análise em direto ou uma partida cuja hora de início já chegou.
+  const fixtureDate = data.fixtureDate || result?.fixture?.date;
+  const kickoff = fixtureDate ? new Date(fixtureDate).getTime() : NaN;
+  if (result?.liveAnalysis || (Number.isFinite(kickoff) && kickoff <= Date.now())) {
+    try { localStorage.removeItem(cacheKey); } catch {}
+    return { data, savedAt: Date.now(), cached: false };
+  }
+
+  const savedAt = Date.now();
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ data, fixtureDate, savedAt }));
+  } catch {}
+  return { data, savedAt, cached: false };
+}
+
 async function analyse(id) {
   currentAnalysedFixture = id;
   $("analysis").innerHTML = '<p class="muted">A consultar estatísticas e previsões...</p>';
 
   try {
-    const [statistics, predictions] = await Promise.all([
+    const [statistics, predictionSnapshot] = await Promise.all([
       api("/api/statistics?fixture=" + encodeURIComponent(id)),
-      api("/api/predictions?fixture=" + encodeURIComponent(id))
+      getStablePredictions(id)
     ]);
+    const predictions = predictionSnapshot.data;
 
     const teams = Array.isArray(statistics.results) ? statistics.results : [];
     const predictionResults = Array.isArray(predictions.results) ? predictions.results : [];
@@ -645,7 +679,10 @@ async function analyse(id) {
         : '<p class="muted">As estatísticas ainda não estão disponíveis. Normalmente surgem durante ou após o jogo.</p>') +
       '</div><div class="analysis-section"><h3>Previsões</h3>' +
       renderPredictions(predictions) +
-      '<p class="muted">As previsões são indicadores estatísticos, não garantias de resultado.</p></div>';
+      '<p class="muted">As previsões são indicadores estatísticos, não garantias de resultado.</p>' +
+      '<p class="muted">Previsão ' + (predictionSnapshot.cached ? 'mantida' : 'calculada') + ' às ' +
+      safeText(new Date(predictionSnapshot.savedAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })) +
+      ' · estabilidade de 30 min antes do início do jogo.</p></div>';
     if (predictionResults[0]?.liveAnalysis) {
       window.setTimeout(() => analyse(id), 60000);
     }
