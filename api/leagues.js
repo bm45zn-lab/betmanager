@@ -106,8 +106,10 @@ export default async function handler(req, res) {
       const normalizedName = normalize(name);
 
       // Competições de seleções, em qualquer confederação.
-      const isInternational = internationalCompetition.test(name) &&
-        (internationalRegions.has(country) || /national|world|europe|america|africa|asia|oceania/i.test(country));
+      // As competições continentais podem surgir com "World", "Europe" ou
+      // outro país/região no campo country. O nome oficial é o identificador
+      // mais fiável para estas quatro provas.
+      const isInternational = internationalCompetition.test(name);
 
       // Só a primeira divisão de cada país europeu.
       const countryKey = country.replace(/\s+/g, "-");
