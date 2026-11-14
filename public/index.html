@@ -1247,10 +1247,13 @@ function renderDailyBoard(data) {
   if (!picks.length) {
     const d = data?.diagnostics || {};
     const reasons = [
+      Number(data.scanned || 0) + " ligas consultadas de " + Number(d.sportsAvailable || 0),
+      Number(d.failedCompetitions || 0) + " ligas com erro na consulta",
+      Number(data.events || 0) + " jogos devolvidos pela fonte",
       Number(d.targetDateEvents || 0) + " jogos encontrados para amanhã",
       Number(d.withoutBetclic || 0) + " sem odds Betclic",
       Number(d.staleOdds || 0) + " com odds desatualizadas",
-      Number(d.noEligibleMarkets || 0) + " sem mercados completos dentro dos filtros"
+      Number(d.noEligibleMarkets || 0) + " sem mercados elegíveis"
     ];
     root.innerHTML = '<p class="muted">Não foi possível encontrar seleções elegíveis para amanhã.</p><p class="bank-note">' + reasons.map(safeText).join(" · ") + '. Se houver jogos sem odds atuais, tenta novamente mais tarde ou seleciona outras ligas.</p>';
     return;
