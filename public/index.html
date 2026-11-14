@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -63,8 +63,8 @@ summary:hover{color:#fff}
 <div class="grid">
 <label>Data inicial<br><input type="date" id="from"></label>
 <label>Data final<br><input type="date" id="to"></label>
-<label>Pesquisar liga por nome ou país<br>
-<input type="search" id="leagueSearch" placeholder="Ex.: Premier League, Portugal..." autocomplete="off">
+<label>Pesquisar competição por nome ou país<br>
+<input type="search" id="leagueSearch" placeholder="Ex.: Liga Portugal, Inglaterra..." autocomplete="off">
 </label>
 <label>Competição<br>
 <select id="league">
@@ -80,12 +80,12 @@ summary:hover{color:#fff}
 
 <div class="card">
 <h2>Jogos encontrados</h2>
-<div id="games">Aguardando pesquisa...</div>
+<div id="games">À espera da pesquisa...</div>
 </div>
 
 <div class="card">
 <h2>Análise do jogo</h2>
-<div id="analysis">Seleciona um jogo para consultar as estatísticas.</div>
+<div id="analysis">Seleciona um jogo para consultar a análise e as estatísticas.</div>
 </div>
 </main>
 <script>
@@ -164,11 +164,11 @@ async function loadLeagues() {
     leagues = Array.isArray(data.results) ? data.results : [];
     renderLeagueOptions();
     if (!leagues.length) {
-      $("status").textContent = "Não foram encontradas ligas para a época carregada.";
+      $("status").textContent = "Não foram encontradas competições para a época selecionada.";
     }
   } catch (error) {
     select.innerHTML = '<option value="">Ligas indisponíveis</option>';
-    $("status").textContent = "Não foi possível carregar as ligas: " + error.message;
+    $("status").textContent = "Não foi possível carregar as competições: " + error.message;
   }
 }
 
@@ -205,7 +205,7 @@ async function loadFixtures() {
   button.disabled = true;
   button.textContent = "A pesquisar...";
   $("status").textContent = "A consultar jogos...";
-  $("games").textContent = "A carregar...";
+  $("games").textContent = "A carregar jogos...";
 
   try {
     const query = new URLSearchParams({ from, to });
@@ -267,13 +267,13 @@ function renderTeamStatistics(team) {
     '<h3>' + safeText(team.team?.name || "Equipa") + '</h3></div>' +
     (keyStats.length
       ? '<div class="analysis-grid">' + keyStats.map(item =>
-          '<div class="stat-card"><span class="muted">' + safeText(item.type) +
+          '<div class="stat-card"><span class="muted">' + safeText(statisticLabel(item.type)) +
           '</span><strong>' + safeText(statValue(item.value)) + '</strong></div>'
         ).join("") + '</div>'
       : '<p class="muted">Ainda não existem estatísticas disponíveis para esta equipa.</p>') +
     '<details><summary>Ver todas as estatísticas</summary>' +
     (stats.length ? stats.map(item =>
-      '<div class="metric"><span>' + safeText(item.type) + '</span><b>' +
+      '<div class="metric"><span>' + safeText(statisticLabel(item.type)) + '</span><b>' +
       safeText(statValue(item.value)) + '</b></div>'
     ).join("") : '<p class="muted">Sem dados.</p>') +
     '</details></div>';
@@ -282,9 +282,12 @@ function renderTeamStatistics(team) {
 function comparisonLabel(value) {
   const labels = {
     form: "Forma recente",
+    att: "Ataque",
     attack: "Ataque",
+    def: "Defesa",
     defence: "Defesa",
     defense: "Defesa",
+    poisson: "Distribuição de Poisson",
     poisson_distribution: "Distribuição de Poisson",
     h2h: "Confrontos diretos",
     goals: "Golos",
@@ -307,9 +310,30 @@ function comparisonLabel(value) {
     over: "Mais de",
     btts: "Ambas as equipas marcam"
   };
-  const key = String(value).toLocaleLowerCase("pt-PT").replace(/[ -]/g, "_");
+  const key = String(value).toLocaleLowerCase("pt-PT").trim().replace(/[ -]/g, "_");
   if (labels[key]) return labels[key];
   return String(value).replace(/_/g, " ").replace(/\\b\\w/g, char => char.toLocaleUpperCase("pt-PT"));
+}
+
+function statisticLabel(value) {
+  const labels = {
+    "Ball Possession": "Posse de bola",
+    "Total Shots": "Total de remates",
+    "Shots on Goal": "Remates à baliza",
+    "Shots off Goal": "Remates ao lado",
+    "Blocked Shots": "Remates bloqueados",
+    "Corner Kicks": "Pontapés de canto",
+    "Fouls": "Faltas",
+    "Yellow Cards": "Cartões amarelos",
+    "Red Cards": "Cartões vermelhos",
+    "Goalkeeper Saves": "Defesas do guarda-redes",
+    "Total Passes": "Total de passes",
+    "Passes Accurate": "Passes certos",
+    "Passes %": "Precisão de passe",
+    "expected_goals": "Golos esperados",
+    "goals_prevented": "Golos evitados"
+  };
+  return labels[value] || comparisonLabel(value);
 }
 
 function renderComparisonValue(value) {
