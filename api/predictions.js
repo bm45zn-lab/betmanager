@@ -132,7 +132,12 @@ async function recentMarketAnalysis(match, key) {
   [...(homeFixtures || []), ...(awayFixtures || [])].forEach(item => {
     if (item.fixture?.id) fixtures.set(Number(item.fixture.id), item);
   });
-  const recent = [...fixtures.values()].slice(0, 8);
+  const recent = [...fixtures.values()]
+    .sort((a, b) => {
+      const dateDiff = new Date(b.fixture?.date || 0) - new Date(a.fixture?.date || 0);
+      return dateDiff || Number(a.fixture?.id || 0) - Number(b.fixture?.id || 0);
+    })
+    .slice(0, 8);
   if (recent.length < 4) return null;
 
   const samples = await Promise.all(recent.map(async item => {
@@ -199,7 +204,11 @@ async function recentMarketAnalysis(match, key) {
 
   // Só considerar uma aposta quando a frequência histórica é elevada.
   // Frequência observada não equivale a valor esperado: faltam odds do bookmaker.
-  markets.sort((a, b) => b.probability - a.probability || b.sample - a.sample);
+  markets.sort((a, b) =>
+    b.probability - a.probability ||
+    b.sample - a.sample ||
+    a.market.localeCompare(b.market, "pt-PT")
+  );
   const best = markets.find(item => item.probability >= 80 && item.sample >= 5);
   return {
     sampleMatches: valid.length,
