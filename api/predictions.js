@@ -272,7 +272,7 @@ export default async function handler(req, res) {
       Number(item.fixture?.id) === Number(fixture)
     );
 
-    const marketAnalysis = await recentMarketAnalysis(match, key);
+    const marketAnalysis = await recentMarketAnalysis(match, key).catch(() => null);
 
     if (validPredictions.length) {
       const results = validPredictions.map(item => ({
