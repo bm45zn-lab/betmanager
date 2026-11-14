@@ -1222,7 +1222,9 @@ async function loadDailyBoard() {
   button.disabled = true;
   button.textContent = "A consultar Betclic…";
   $("dailyBoardPicks").innerHTML = '<p class="muted">A analisar os jogos que começam hoje e as odds disponíveis na Betclic.</p>';
-  const date = localDateInputValue(new Date());
+  const dateParts = new Intl.DateTimeFormat("en-CA", {timeZone:"Europe/Lisbon",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+  const part = type => dateParts.find(item => item.type === type)?.value || "";
+  const date = part("year") + "-" + part("month") + "-" + part("day");
   try {
     const data = await api("/api/challenge-odds?action=daily&date=" + encodeURIComponent(date));
     renderDailyBoard(data);
