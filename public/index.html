@@ -138,6 +138,17 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
           <button type="button" data-league-name="nations league">Liga das Nações</button>
         </div>
       </details>
+      <details class="filter-group">
+        <summary>Taças nacionais</summary>
+        <div class="quick-filters">
+          <button type="button" data-league-name="taca de portugal">Taça de Portugal</button>
+          <button type="button" data-league-name="fa cup">FA Cup</button>
+          <button type="button" data-league-name="copa del rey">Copa del Rey</button>
+          <button type="button" data-league-name="coupe de france">Coupe de France</button>
+          <button type="button" data-league-name="dfb pokal">DFB-Pokal</button>
+          <button type="button" data-league-name="coppa italia">Coppa Italia</button>
+        </div>
+      </details>
     </div>
     <p id="status"><small>Seleciona as datas para começar.</small></p>
   </section>
@@ -230,9 +241,9 @@ async function loadLeagues() {
     const currentLeagues = Array.isArray(currentData.results) ? currentData.results : [];
     // Mantém as provas internacionais da época anterior: algumas competições
     // (por exemplo, o Mundial de Clubes) não têm edição todos os anos.
-    const previousInternational = (Array.isArray(previousData.results) ? previousData.results : [])
-      .filter(item => /champions league|europa league|club world cup|nations league/i.test(item.name || ""));
-    const merged = [...currentLeagues, ...previousInternational];
+    const previousCupAndInternational = (Array.isArray(previousData.results) ? previousData.results : [])
+      .filter(item => /champions league|europa league|club world cup|nations league|taca de portugal|fa cup|copa del rey|coupe de france|dfb pokal|coppa italia/i.test(normalizeLeagueText(item.name)));
+    const merged = [...currentLeagues, ...previousCupAndInternational];
     const unique = new Map();
     merged.forEach(item => unique.set(String(item.id) + "-" + String(item.season), item));
     leagues = [...unique.values()];
