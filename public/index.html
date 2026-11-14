@@ -140,8 +140,6 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       <div class="bank-panel">
         <h3>Recomendador de aposta</h3>
         <div class="bank-fields">
-          <label>Jogo<input id="bankGame" type="text" placeholder="Ex.: Benfica – Porto"></label>
-          <label>Mercado<input id="bankMarket" type="text" placeholder="Ex.: Mais de 1,5 golos"></label>
           <label>Odd decimal<input id="bankOdds" type="number" min="1.01" step="0.01" placeholder="Ex.: 1.80"></label>
           <label>Valor a apostar (€)<input id="bankStake" type="number" min="0.01" step="0.01"></label>
         </div>
@@ -338,9 +336,9 @@ function renderBankManager() {
       const actions = bet.status === "pending"
         ? '<button type="button" data-bank-action="won" data-bank-id="' + safeText(bet.id) + '">Ganha</button><button type="button" data-bank-action="lost" data-bank-id="' + safeText(bet.id) + '">Perdida</button><button type="button" data-bank-action="void" data-bank-id="' + safeText(bet.id) + '">Anulada</button>'
         : '<span class="muted">Fechada</span>';
-      return '<tr><td>' + safeText(new Date(bet.date).toLocaleDateString("pt-PT")) + '</td><td><b>' + safeText(bet.game || "Aposta") + '</b><br><small>' + safeText(bet.market || "—") + '</small></td><td>' + euro(bet.stake) + '</td><td>' + safeText(bet.odds.toFixed(2)) + '</td><td>' + statusLabel + '<br><small>' + result + '</small></td><td>' + actions + '</td></tr>';
+      return '<tr><td>' + safeText(new Date(bet.date).toLocaleDateString("pt-PT")) + '</td><td>' + euro(bet.stake) + '</td><td>' + safeText(bet.odds.toFixed(2)) + '</td><td>' + statusLabel + '<br><small>' + result + '</small></td><td>' + actions + '</td></tr>';
     }).join("");
-    history.innerHTML = '<table><thead><tr><th>Data</th><th>Jogo / mercado</th><th>Stake</th><th>Odd</th><th>Estado / líquido</th><th>Atualizar</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    history.innerHTML = '<table><thead><tr><th>Data</th><th>Stake</th><th>Odd</th><th>Estado / líquido</th><th>Atualizar</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
   updateBankRecommendation();
 }
@@ -357,8 +355,6 @@ function registerBankBet() {
   bankState.bets.push({
     id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 7),
     date: new Date().toISOString(),
-    game: $("bankGame").value.trim(),
-    market: $("bankMarket").value.trim(),
     stake: Number(stake.toFixed(2)),
     odds,
     status: "pending"
