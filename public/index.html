@@ -16,6 +16,15 @@ button{background:#159365;border:0;font-weight:bold;cursor:pointer}
 button:disabled{opacity:.6;cursor:wait}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .match{padding:13px;border-bottom:1px solid #34443d}
+.analysis-section{margin:16px 0;padding:14px;background:#22332d;border-radius:10px}
+.analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.stat-card{background:#182620;padding:12px;border-radius:8px}
+.stat-card strong{display:block;font-size:20px;color:#8ae0b4;margin-top:5px}
+.team-heading{display:flex;align-items:center;gap:9px;margin:14px 0 8px}
+.team-heading img{width:28px;height:28px;object-fit:contain}
+.metric{display:grid;grid-template-columns:1fr auto;gap:12px;padding:8px 0;border-bottom:1px solid #34443d}
+.muted{color:#aabbb2}
+.prediction{padding:12px;background:#182620;border-radius:8px;margin:8px 0}
 small{color:#aabbb2}
 .green{color:#7ce1a9}
 </style>
@@ -208,8 +217,74 @@ async function loadFixtures() {
   }
 }
 
+function safeText(value) {
+  return String(value ?? "—").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
+
+function statValue(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+function renderTeamStatistics(team) {
+  const stats = Array.isArray(team.statistics) ? team.statistics : [];
+  const possession = stats.find(item => item.type === "Ball Possession");
+  const shots = stats.find(item => item.type === "Total Shots");
+  const shotsOn = stats.find(item => item.type === "Shots on Goal");
+  const corners = stats.find(item => item.type === "Corner Kicks");
+  const fouls = stats.find(item => item.type === "Fouls");
+  const cards = stats.find(item => item.type === "Yellow Cards");
+  const keyStats = [possession, shots, shotsOn, corners, fouls, cards].filter(Boolean);
+
+  return '<div class="analysis-section">' +
+    '<div class="team-heading">' +
+    (team.team?.logo ? '<img src="' + safeText(team.team.logo) + '" alt="">' : '') +
+    '<h3>' + safeText(team.team?.name || "Equipa") + '</h3></div>' +
+    (keyStats.length
+      ? '<div class="analysis-grid">' + keyStats.map(item =>
+          '<div class="stat-card"><span class="muted">' + safeText(item.type) +
+          '</span><strong>' + safeText(statValue(item.value)) + '</strong></div>'
+        ).join("") + '</div>'
+      : '<p class="muted">Ainda não existem estatísticas disponíveis para esta equipa.</p>') +
+    '<details><summary>Ver todas as estatísticas</summary>' +
+    (stats.length ? stats.map(item =>
+      '<div class="metric"><span>' + safeText(item.type) + '</span><b>' +
+      safeText(statValue(item.value)) + '</b></div>'
+    ).join("") : '<p class="muted">Sem dados.</p>') +
+    '</details></div>';
+}
+
+function renderPredictions(data) {
+  const item = Array.isArray(data) ? data[0] : null;
+  if (!item) {
+    return '<p class="muted">O fornecedor ainda não disponibilizou previsões para este jogo.</p>';
+  }
+
+  const prediction = item.predictions || {};
+  const winner = prediction.winner?.name || "Sem favorito definido";
+  const advice = prediction.advice || "Sem recomendação disponível.";
+  const percent = prediction.percent || {};
+  const teams = item.teams || {};
+  const comparison = item.comparison || {};
+
+  return '<div class="prediction"><p class="muted">Favorito indicado</p><h3>' +
+    safeText(winner) + '</h3><p>' + safeText(advice) + '</p>' +
+    '<div class="analysis-grid">' +
+    '<div class="stat-card">Casa<strong>' + safeText(percent.home || "—") + '</strong></div>' +
+    '<div class="stat-card">Empate<strong>' + safeText(percent.draw || "—") + '</strong></div>' +
+    '<div class="stat-card">Fora<strong>' + safeText(percent.away || "—") + '</strong></div>' +
+    '</div></div>' +
+    '<details><summary>Comparação das equipas</summary>' +
+    Object.entries(comparison).map(([key, value]) =>
+      '<div class="metric"><span>' + safeText(key) + '</span><b>' +
+      safeText(value) + '</b></div>'
+    ).join("") + '</details>';
+}
+
 async function analyse(id) {
-  $("analysis").textContent = "A consultar estatísticas...";
+  $("analysis").innerHTML = '<p class="muted">A consultar estatísticas e previsões...</p>';
 
   try {
     const [statistics, predictions] = await Promise.all([
@@ -217,20 +292,20 @@ async function analyse(id) {
       api("/api/predictions?fixture=" + encodeURIComponent(id))
     ]);
 
-    $("analysis").innerHTML =
-      "<h3>Estatísticas</h3>" +
-      (statistics.results || []).map(team =>
-        "<h4>" + (team.team?.name || "Equipa") + "</h4>" +
-        (team.statistics || []).map(item =>
-          "<p>" + item.type + ': <b>' + (item.value ?? "N/D") + "</b></p>"
-        ).join("")
-      ).join("") +
-      "<h3>Previsões do fornecedor</h3><pre></pre>";
+    const teams = Array.isArray(statistics.results) ? statistics.results : [];
+    const predictionResults = Array.isArray(predictions.results) ? predictions.results : [];
 
-    $("analysis").querySelector("pre").textContent =
-      JSON.stringify(predictions.results, null, 2);
+    $("analysis").innerHTML =
+      '<div class="analysis-section"><h3>Estatísticas do jogo</h3>' +
+      (teams.length
+        ? teams.map(renderTeamStatistics).join("")
+        : '<p class="muted">As estatísticas ainda não estão disponíveis. Normalmente surgem durante ou após o jogo.</p>') +
+      '</div><div class="analysis-section"><h3>Previsões</h3>' +
+      renderPredictions(predictionResults) +
+      '<p class="muted">As previsões são indicadores estatísticos, não garantias de resultado.</p></div>';
   } catch (error) {
-    $("analysis").textContent = "Erro ao analisar o jogo: " + error.message;
+    $("analysis").innerHTML = '<p>Não foi possível carregar a análise: ' +
+      safeText(error.message) + '</p>';
   }
 }
 
