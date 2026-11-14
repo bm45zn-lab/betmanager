@@ -510,7 +510,7 @@ function challengeDisplayBest(result) {
       '<p>' + safeText(pick.sport_title || "Futebol") + ' · ' + safeText(date) + '</p>' +
       '<p><b>' + safeText(pick.market) + ':</b> ' + safeText(pick.selection) + '</p>' +
       '<p><b>Odd Betclic:</b> ' + challengeFormatOdd(pick.odds) + ' · <b>Probabilidade implícita sem margem:</b> ' + probabilityText + '</p>' +
-      '<p><b>Margem estimada do mercado:</b> ' + marginText + ' · ' + safeText(pick.confidence_label || "Filtro aplicado") + '</p>' +
+      '<p><b>Margem estimada do mercado:</b> ' + marginText + ' · ' + safeText(pick.market_quality_label || "Filtro aplicado") + '</p>' +
       '<p class="bank-note">A probabilidade é calculada apenas a partir das odds da Betclic. Não é uma previsão independente nem demonstra valor esperado positivo.</p>' +
       '<button type="button" data-challenge-pick-index="' + index + '" ' + (challengeBalance() <= 0 || challengeBalance() >= CHALLENGE_TARGET || challengeHasPending() ? 'disabled' : '') + '>Registar esta seleção</button></div>';
   };
