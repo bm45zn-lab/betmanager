@@ -31,7 +31,11 @@ small{color:#aabbb2}
 <div class="grid">
 <label>Data inicial<br><input type="date" id="from"></label>
 <label>Data final<br><input type="date" id="to"></label>
-<label>Competição (ID)<br><input id="league" type="number" placeholder="Ex.: 39"></label>
+<label>Competição<br>
+<select id="league">
+<option value="">Todas as competições</option>
+</select>
+</label>
 </div>
 <br>
 <button onclick="loadFixtures()">Pesquisar jogos</button>
