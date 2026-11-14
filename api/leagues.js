@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-  const internationalCompetition = /\\b(world cup|club world cup|champions league|europa league|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|world cup qualifiers)\\b/i;
-  const excludedConfederationCompetition = /\\b(concacaf|gold cup)\\b/i;
+  const internationalCompetition = /\b(world cup|club world cup|champions league|europa league|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|world cup qualifiers)\b/i;
+  const excludedConfederationCompetition = /\b(concacaf|gold cup)\b/i;
 
   try {
     const url = new URL("https://v3.football.api-sports.io/leagues");
