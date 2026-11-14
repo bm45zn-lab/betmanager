@@ -54,50 +54,51 @@ export default async function handler(req, res) {
   const end = new Date(String(to) + "T00:00:00Z");
   const dayCount = Math.floor((end - start) / 86400000) + 1;
 
-  if (!Number.isFinite(dayCount) || dayCount < 1 || dayCount > 31) {
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) ||
+      !Number.isFinite(dayCount) || dayCount < 1) {
     return res.status(400).json({
-      error: "O intervalo de pesquisa deve ter entre 1 e 31 dias",
+      error: "Datas inválidas ou intervalo de pesquisa incorreto",
+      received: { from, to },
       build: BUILD
     });
   }
 
   try {
-    const allFixtures = [];
-    for (let i = 0; i < dayCount; i++) {
-      const day = new Date(start.getTime() + i * 86400000).toISOString().slice(0, 10);
-      const upstreamUrl = new URL("https://v3.football.api-sports.io/fixtures");
-      upstreamUrl.searchParams.set("date", day);
-      upstreamUrl.searchParams.set("timezone", "Europe/Lisbon");
-      if (league) upstreamUrl.searchParams.set("league", String(league));
-      if (season) upstreamUrl.searchParams.set("season", String(season));
+    // A API-Football aceita os parâmetros from/to diretamente.
+    // Uma única chamada evita o limite artificial de 31 dias e reduz
+    // drasticamente o consumo de pedidos face a uma chamada por dia.
+    const upstreamUrl = new URL("https://v3.football.api-sports.io/fixtures");
+    upstreamUrl.searchParams.set("from", String(from));
+    upstreamUrl.searchParams.set("to", String(to));
+    upstreamUrl.searchParams.set("timezone", "Europe/Lisbon");
+    if (league) upstreamUrl.searchParams.set("league", String(league));
+    if (season) upstreamUrl.searchParams.set("season", String(season));
 
-      const response = await fetch(upstreamUrl, {
-        method: "GET",
-        headers: { "x-apisports-key": key },
-        cache: "no-store"
+    const response = await fetch(upstreamUrl, {
+      method: "GET",
+      headers: { "x-apisports-key": key },
+      cache: "no-store"
+    });
+    const data = await response.json();
+    const errors = data.errors || {};
+
+    if (!response.ok || Object.keys(errors).length) {
+      return res.status(502).json({
+        error: "API-Football recusou o pedido",
+        details: errors,
+        diagnostic: {
+          build: BUILD,
+          requestedRange: { from, to },
+          sentQuery: upstreamUrl.searchParams.toString(),
+          upstreamStatus: response.status
+        }
       });
-      const data = await response.json();
-      const errors = data.errors || {};
-
-      if (!response.ok || Object.keys(errors).length) {
-        return res.status(502).json({
-          error: "API-Football recusou o pedido",
-          details: errors,
-          diagnostic: {
-            build: BUILD,
-            requestedDate: day,
-            sentQuery: upstreamUrl.searchParams.toString(),
-            upstreamStatus: response.status
-          }
-        });
-      }
-
-      allFixtures.push(...(data.response || []));
     }
 
+    const results = data.response || [];
     return res.status(200).json({
-      results: allFixtures,
-      count: allFixtures.length,
+      results,
+      count: results.length,
       build: BUILD
     });
   } catch (error) {
