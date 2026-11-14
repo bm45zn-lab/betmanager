@@ -543,28 +543,17 @@ function renderPredictions(data) {
     { market: "Dupla hipótese 1X", probability: hp + dp, sourceLabel: "Calculado a partir da previsão do fornecedor", kind: "supplier" },
     { market: "Dupla hipótese X2", probability: dp + ap, sourceLabel: "Calculado a partir da previsão do fornecedor", kind: "supplier" }
   ].filter(m => m.probability >= 65) : [];
-  const marketCategory = name => {
-    if (/golo|marcam|resultado|empate|vitória|hipótese|intervalo/i.test(name)) return "Golos e resultado";
-    if (/canto/i.test(name)) return "Cantos";
-    if (/cartão/i.test(name)) return "Cartões";
-    if (/remate|baliza|shot/i.test(name)) return "Remates";
-    return "Outros mercados";
-  };
   const bookmakerProfile = $("bookmakerProfile")?.value || "betclic";
-  // Betano PT não deve receber sugestões de mercados de total de remates
-  // sem confirmação de que esses mercados estão efetivamente disponíveis.
+  // Betano PT: ocultar mercados de remates cuja disponibilidade não foi confirmada.
   const compatibleHistoricalMarkets = historicalMarkets.filter(market => {
     if (bookmakerProfile !== "betano") return true;
     return !/total de remates|remates totais|remates à baliza|shots on target|total shots/i.test(market.market);
   });
-  const marketGroups = [...compatibleHistoricalMarkets, ...supplierMarkets]
-    .sort((a, b) => b.probability - a.probability)
-    .reduce((groups, market) => {
-      const category = marketCategory(market.market);
-      (groups[category] ||= []).push(market);
-      return groups;
-    }, {});
-  const marketCount = Object.values(marketGroups).reduce((sum, group) => sum + group.length, 0);
+  // Uma única indicação por jogo: maior frequência observada / percentagem disponível.
+  // Em empate, privilegia a amostra histórica maior; não confundir frequência com garantia.
+  const bestMarket = [...compatibleHistoricalMarkets, ...supplierMarkets]
+    .sort((a, b) => Number(b.probability) - Number(a.probability) ||
+      Number(b.sample || 0) - Number(a.sample || 0))[0] || null;
   const predictedHomeGoals = prediction.goals?.home ?? item.score?.home;
   const predictedAwayGoals = prediction.goals?.away ?? item.score?.away;
   const hasScore = predictedHomeGoals !== null && predictedHomeGoals !== undefined &&
@@ -577,19 +566,11 @@ function renderPredictions(data) {
       : '<h3>' + safeText(winner) + '</h3>') +
     '<p>' + safeText(advice) + '</p>' +
     bookmakerRulesNote() +
-    '<div class="analysis-section"><h3>Indicações por mercado</h3>' +
-      '<p class="muted">Mostramos várias opções no mesmo jogo, desde que tenham suporte nos dados. Histórico: mínimo de 5 jogos e frequência observada de 75%. Resultado 1X2: previsão do fornecedor, apresentada separadamente. Percentagens históricas não são probabilidades futuras nem garantias.</p>' +
-      (marketCount
-        ? Object.entries(marketGroups).map(([category, markets]) =>
-            '<h4>' + safeText(category) + '</h4>' +
-            markets.map(market =>
-              '<div class="metric market-indication"><span>' + safeText(market.market) +
-              '<small class="market-source">' + safeText(market.sourceLabel) +
-              (market.sample ? ' · ' + safeText(market.hits ?? "—") + '/' + safeText(market.sample) + ' jogos' : '') +
-              '</small></span><b>' + safeText(Math.round(market.probability)) + '%</b></div>'
-            ).join("")
-          ).join("")
-        : '<p class="muted">Ainda não há mercados com dados suficientes para uma indicação responsável. Não apostar é uma opção válida.</p>') +
+    '<div class="analysis-section"><h3>Aposta mais conservadora deste jogo</h3>' +
+      '<p class="muted">Apresentamos apenas uma indicação: a que tem a maior percentagem entre os mercados avaliados e compatíveis com a casa selecionada. O histórico exige pelo menos 5 jogos e frequência observada mínima de 75%. A percentagem do fornecedor é uma estimativa distinta. Nenhuma aposta é garantida; se os dados forem insuficientes, não recomendamos apostar.</p>' +
+      (bestMarket
+        ? '<div class="bet-suggestion"><span class="muted">ÚNICA INDICAÇÃO · ' + safeText(bestMarket.sourceLabel) + '</span><strong>' + safeText(bestMarket.market) + '</strong><span>' + safeText(Math.round(bestMarket.probability)) + '% ' + (bestMarket.sample ? '· Histórico: ' + safeText(bestMarket.hits ?? "—") + '/' + safeText(bestMarket.sample) + ' jogos' : '· Estimativa do fornecedor') + '</span></div>'
+        : '<p class="muted">Sem dados suficientes para escolher uma aposta com critério. Não apostar é a indicação neste jogo.</p>') +
       (item.marketAnalysis?.excludedMarkets?.length
         ? '<details><summary>Mercados que não avaliamos como seguros</summary>' +
           item.marketAnalysis.excludedMarkets.map(market => '<div class="metric"><span>' + safeText(market.market) + '</span><small>' + safeText(market.reason) + '</small></div>').join('') +
