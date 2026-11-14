@@ -63,8 +63,6 @@ button:disabled{opacity:.55;cursor:wait;transform:none}
 .match p{margin:4px 0 8px;font-size:11px}
 .match button{font-size:11px;padding:8px 12px}
 #analysis{min-height:180px}
-.bookmaker-label{display:block;margin:8px 0 6px;font-size:10px;letter-spacing:.1em;color:#b8aeb0;font-weight:800}
-.bookmaker-select{max-width:280px;margin:0 0 14px;padding:11px 14px;border-color:#573038;background:linear-gradient(135deg,#1c1113,#101010);font-size:13px;font-weight:700}
 .analysis-section{margin:13px 0;padding:16px;background:linear-gradient(145deg,rgba(29,20,21,.76),rgba(18,18,18,.9));border:1px solid rgba(130,53,62,.25);border-radius:11px}
 .analysis-section>h3{font-size:15px;margin:0 0 12px;letter-spacing:-.015em}
 .analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px}
@@ -155,11 +153,6 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     </div>
     <div class="card" id="analysis-panel">
       <h2 class="section-title">Análise do jogo</h2>
-      <label class="bookmaker-label" for="bookmakerProfile">CASA DE APOSTAS A UTILIZAR</label>
-      <select id="bookmakerProfile" class="bookmaker-select">
-        <option value="betclic">Betclic Portugal</option>
-        <option value="betano">Betano Portugal</option>
-      </select>
       <div id="analysis">Seleciona um jogo para consultar a análise e as estatísticas.</div>
     </div>
   </section>
@@ -566,12 +559,7 @@ function renderPredictions(data) {
     { market: "Dupla hipótese 1X", probability: hp + dp, sourceLabel: "Calculado a partir da previsão do fornecedor", kind: "supplier" },
     { market: "Dupla hipótese X2", probability: dp + ap, sourceLabel: "Calculado a partir da previsão do fornecedor", kind: "supplier" }
   ].filter(m => m.probability >= 65) : [];
-  const bookmakerProfile = $("bookmakerProfile")?.value || "betclic";
-  // Betano PT: ocultar mercados de remates cuja disponibilidade não foi confirmada.
-  const compatibleHistoricalMarkets = historicalMarkets.filter(market => {
-    if (bookmakerProfile !== "betano") return true;
-    return !/total de remates|remates totais|remates à baliza|shots on target|total shots/i.test(market.market);
-  });
+  const compatibleHistoricalMarkets = historicalMarkets;
   // Escolhe primeiro entre mercados históricos: Wilson reduz a pontuação de
   // amostras pequenas e a preferência evita que linhas de baixa remuneração
   // presumida (ex.: mais de 0,5 golos) ganhem apenas por terem alta frequência.
@@ -692,12 +680,6 @@ async function analyse(id) {
   }
 }
 
-$("bookmakerProfile").value = localStorage.getItem("betmanager-bookmaker-profile") || "betclic";
-$("bookmakerProfile").addEventListener("change", () => {
-  const profile = $("bookmakerProfile").value;
-  localStorage.setItem("betmanager-bookmaker-profile", profile);
-  if (currentAnalysedFixture) analyse(currentAnalysedFixture);
-});
 $("searchButton").addEventListener("click", loadFixtures);
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
