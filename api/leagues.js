@@ -14,6 +14,7 @@ export default async function handler(req, res) {
 
   // Primeiras divisões europeias: nomes oficiais usados pela API-Football.
   const firstDivisions = {
+    Brazil: ["Serie A"],
     Albania: ["Kategoria Superiore"],
     Armenia: ["Premier League"],
     Austria: ["Bundesliga"],
