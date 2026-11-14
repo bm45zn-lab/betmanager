@@ -564,13 +564,10 @@ async function createAccumulator(forceNew = false) {
   const button = $("accumulatorButton");
   const panel = $("accumulator-panel");
   const content = $("accumulator-content");
-  const cacheKey = "betmanager-accumulator-current-v3";
+  const cacheKey = "betmanager-accumulator-v4:" + [league, season, from, to].join("|");
 
-  // Evita duas análises simultâneas causadas por cliques rápidos.
   if (window.betManagerAccumulatorRunning) return;
   window.betManagerAccumulatorRunning = true;
-
-  // Só uma ação explícita de "Nova análise" substitui a múltipla guardada.
   try {
     if (forceNew) localStorage.removeItem(cacheKey);
     const saved = localStorage.getItem(cacheKey);
@@ -578,13 +575,11 @@ async function createAccumulator(forceNew = false) {
       const snapshot = JSON.parse(saved);
       content.innerHTML = snapshot.html;
       panel.hidden = false;
-      $("status").textContent = "A mostrar a múltipla guardada (" + snapshot.createdAt + "). Para a substituir, usa «Nova análise».";
+      $("status").textContent = "A mostrar a múltipla guardada (" + snapshot.createdAt + "). Usa «Nova análise» para atualizar.";
       window.betManagerAccumulatorRunning = false;
       return;
     }
-  } catch (error) {
-    // Se o armazenamento estiver indisponível, continua com uma análise nova.
-  }
+  } catch (error) {}
 
   if (!league) {
     $("status").textContent = "Seleciona primeiro uma liga ou competição nos atalhos.";
@@ -598,41 +593,53 @@ async function createAccumulator(forceNew = false) {
   }
 
   panel.hidden = false;
-  content.textContent = "A analisar os jogos da competição e os mercados históricos. Isto pode demorar um pouco...";
+  content.textContent = "A analisar todos os jogos do período e a escolher o mercado mais forte de cada encontro...";
   button.disabled = true;
-  button.textContent = "A analisar...";
+  button.textContent = "A analisar todos os jogos...";
 
   try {
     const query = new URLSearchParams({ from, to, league, season });
     const fixtureData = await api("/api/fixtures?" + query.toString());
     const upcoming = (Array.isArray(fixtureData.results) ? fixtureData.results : [])
-      .filter(game => ["NS", "TBD"].includes(String(game.fixture?.status?.short || "").toUpperCase()))
-      .sort((a, b) => new Date(a.fixture?.date || 0) - new Date(b.fixture?.date || 0));
-
-    // Acrescentar também os jogos que estão efetivamente em direto na mesma liga.
+      .filter(game => ["NS", "TBD"].includes(String(game.fixture?.status?.short || "").toUpperCase()));
     const liveData = await api("/api/fixtures?live=all&league=" + encodeURIComponent(league) +
       "&season=" + encodeURIComponent(season)).catch(() => ({ results: [] }));
+    const liveStatuses = ["1H", "HT", "2H", "ET", "BT", "P", "LIVE"];
     const liveGames = (Array.isArray(liveData.results) ? liveData.results : [])
-      .filter(game => ["1H", "HT", "2H", "ET", "BT", "P", "LIVE"].includes(
-        String(game.fixture?.status?.short || "").toUpperCase()
-      ));
-    const allGames = [
-      ...upcoming.map(game => ({ game, mode: "pre" })),
-      ...liveGames.map(game => ({ game, mode: "live" }))
-    ];
+      .filter(game => liveStatuses.includes(String(game.fixture?.status?.short || "").toUpperCase()))
+      .filter(game => {
+        const date = String(game.fixture?.date || "").slice(0, 10);
+        return date >= from && date <= to;
+      });
+
+    const byId = new Map();
+    upcoming.forEach(game => byId.set(Number(game.fixture?.id), { game, mode: "pre" }));
+    liveGames.forEach(game => byId.set(Number(game.fixture?.id), { game, mode: "live" }));
+    const allGames = [...byId.values()].sort((a, b) =>
+      new Date(a.game.fixture?.date || 0) - new Date(b.game.fixture?.date || 0)
+    );
 
     if (!allGames.length) {
-      content.innerHTML = '<p class="muted">Não há jogos por começar nem jogos em direto nesta competição e período.</p>';
-      try { localStorage.setItem(cacheKey, JSON.stringify({ html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT"), league, season, from, to })); } catch (error) {}
+      content.innerHTML = '<p class="muted">Não existem jogos por disputar ou em direto nesta competição e neste período.</p>';
+      try { localStorage.setItem(cacheKey, JSON.stringify({ html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT") })); } catch (error) {}
       return;
     }
 
-    const candidates = [];
+    const picks = new Array(allGames.length);
     let cursor = 0;
     async function worker() {
       while (cursor < allGames.length) {
-        const entry = allGames[cursor++];
+        const index = cursor++;
+        const entry = allGames[index];
         const game = entry.game;
+        const base = {
+          mode: entry.mode,
+          date: game.fixture?.date,
+          minute: game.fixture?.status?.elapsed,
+          score: { home: game.goals?.home ?? 0, away: game.goals?.away ?? 0 },
+          home: game.teams?.home?.name || "Casa",
+          away: game.teams?.away?.name || "Fora"
+        };
         try {
           const predictionData = await api("/api/predictions?fixture=" + encodeURIComponent(game.fixture.id));
           const item = Array.isArray(predictionData.results) ? predictionData.results[0] : null;
@@ -641,86 +648,67 @@ async function createAccumulator(forceNew = false) {
             const pick = live?.recommendation;
             const probability = Number(pick?.impliedProbability);
             const odd = Number(pick?.odd);
-            const stats = live?.statistics;
-            const hasLiveStats = [stats?.home?.shots, stats?.away?.shots,
-              stats?.home?.shotsOnTarget, stats?.away?.shotsOnTarget,
-              stats?.home?.corners, stats?.away?.corners].some(value => value !== null && value !== undefined);
-            if (pick && pick.market && !/sem aposta|não apostar/i.test(pick.market) &&
-                Number.isFinite(probability) && probability >= 80 &&
-                Number.isFinite(odd) && odd > 1 && hasLiveStats) {
-              candidates.push({
-                mode: "live",
-                date: game.fixture?.date,
-                minute: live.minute,
-                score: live.score,
-                home: game.teams?.home?.name || "Casa",
-                away: game.teams?.away?.name || "Fora",
-                market: pick.market,
-                probability,
-                odd,
-                bookmaker: pick.bookmaker || "",
-                reason: pick.reason
-              });
+            if (pick?.market && !/sem aposta|não apostar/i.test(pick.market) &&
+                Number.isFinite(probability) && Number.isFinite(odd) && odd > 1) {
+              picks[index] = { ...base, market: pick.market, probability, odd, bookmaker: pick.bookmaker || "", reason: pick.reason, available: true };
+            } else {
+              picks[index] = { ...base, market: "Sem aposta recomendada neste momento", available: false,
+                reason: pick?.reason || live?.note || "Não há odds e dados em direto suficientes para escolher um mercado." };
             }
           } else {
-            const analysis = item?.marketAnalysis;
-            const pick = analysis?.recommendation || item?.betManagerSuggestion;
-            const probability = Number(pick?.probability);
-            const sample = Number(pick?.sample);
-            if (pick && pick.market && !/sem aposta|não apostar/i.test(pick.market) &&
-                Number.isFinite(probability) && probability >= 80 &&
-                Number.isFinite(sample) && sample >= 5) {
-              candidates.push({
-                mode: "pre",
-                date: game.fixture?.date,
-                home: game.teams?.home?.name || "Casa",
-                away: game.teams?.away?.name || "Fora",
-                market: pick.market,
-                probability,
-                hits: pick.hits,
-                sample,
-                reason: pick.reason
-              });
+            const markets = Array.isArray(item?.marketAnalysis?.evaluatedMarkets)
+              ? item.marketAnalysis.evaluatedMarkets : [];
+            const best = markets
+              .filter(m => m && m.market && Number(m.sample) >= 5 && Number.isFinite(Number(m.probability)))
+              .sort((a, b) => Number(b.probability) - Number(a.probability) ||
+                Number(b.sample) - Number(a.sample))[0];
+            if (best) {
+              picks[index] = { ...base, market: best.market, probability: Number(best.probability),
+                hits: best.hits, sample: best.sample,
+                reason: "Melhor frequência entre os mercados avaliados para este jogo.", available: true };
+            } else {
+              picks[index] = { ...base, market: "Sem dados suficientes para recomendar uma aposta", available: false,
+                reason: item?.marketAnalysis?.recommendation?.reason || predictionData?.message ||
+                  "Não foi possível avaliar mercados com uma amostra mínima de cinco jogos." };
             }
           }
         } catch (error) {
-          // Um jogo sem dados não invalida os restantes candidatos.
+          picks[index] = { ...base, market: "Análise indisponível — não apostar", available: false,
+            reason: error.message || "Falha ao consultar os dados deste jogo." };
         }
       }
     }
     await Promise.all([worker(), worker(), worker()]);
-    candidates.sort((a, b) =>
-      b.probability - a.probability ||
-      (a.mode === b.mode ? 0 : a.mode === "live" ? -1 : 1) ||
-      b.date?.localeCompare(a.date || "") || 0
-    );
-    const selected = candidates;
-
-    if (!selected.length) {
-      content.innerHTML = '<p class="muted">Não encontrei seleções que cumpram os critérios mínimos: pelo menos 80% de frequência histórica e cinco observações. Prefiro não inventar uma aposta; hoje a decisão mais prudente é não apostar.</p>';
-      try { localStorage.setItem(cacheKey, JSON.stringify({ html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT"), league, season, from, to })); } catch (error) {}
-      return;
-    }
+    const approved = picks.filter(Boolean);
+    const selectedCount = approved.filter(pick => pick.available).length;
 
     content.innerHTML =
-      '<p class="muted">Competição selecionada · ' + safeText(selected.length) +
-      ' seleções aprovadas após análise individual, incluindo jogos por começar e em direto quando cumprem os critérios.</p>' +
-      selected.map((pick, index) =>
-        '<div class="accumulator-pick"><span class="accumulator-meta">SELEÇÃO ' + (index + 1) +
+      '<p class="muted">Foram analisados ' + allGames.length + ' jogos desta competição no período. A múltipla inclui a melhor seleção encontrada em cada jogo; quando os dados não permitem uma escolha responsável, o jogo fica assinalado sem aposta.</p>' +
+      approved.map((pick, index) =>
+        '<div class="accumulator-pick"><span class="accumulator-meta">JOGO ' + (index + 1) +
         (pick.mode === "live" ? ' · <b>EM DIRETO</b> · ' + safeText(pick.minute ?? "—") +
-          " · Resultado: " + safeText(pick.score?.home ?? "—") + "–" + safeText(pick.score?.away ?? "—")
+          ' · Resultado: ' + safeText(pick.score.home) + '–' + safeText(pick.score.away)
           : ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar")) +
         '</span><b>' + safeText(pick.home) + ' – ' + safeText(pick.away) + '</b>' +
         '<strong>' + safeText(pick.market) + '</strong>' +
-        (pick.mode === "live"
-          ? '<span class="accumulator-meta">Odd: ' + safeText(pick.odd) + ' · Probabilidade implícita: ' +
-            safeText(pick.probability) + '%' + (pick.bookmaker ? ' · ' + safeText(pick.bookmaker) : '') + '</span>'
-          : '<span class="accumulator-meta">Frequência histórica: ' + safeText(pick.probability) +
-            '% (' + safeText(pick.hits ?? "—") + '/' + safeText(pick.sample) + ' jogos)</span>') +
+        (pick.available
+          ? (pick.mode === "live"
+            ? '<span class="accumulator-meta">Odd: ' + safeText(pick.odd) + ' · Probabilidade implícita: ' +
+              safeText(pick.probability) + '%' + (pick.bookmaker ? ' · ' + safeText(pick.bookmaker) : '') + '</span>'
+            : '<span class="accumulator-meta">Frequência histórica: ' + safeText(pick.probability) +
+              '% (' + safeText(pick.hits ?? "—") + '/' + safeText(pick.sample) + ' jogos)</span>')
+          : '<span class="accumulator-meta">' + safeText(pick.reason) + '</span>') +
         '</div>'
       ).join("") +
-      '<p class="muted">Critério conservador, não garantia. Nos jogos em direto, só entram odds com probabilidade implícita mínima de 80% e estatísticas atuais disponíveis; isso não prova valor esperado. Nos jogos futuros, exigem-se pelo menos 80% de frequência histórica em cinco observações. Confirma sempre as odds na tua casa de apostas.</p>';
-    try { localStorage.setItem(cacheKey, JSON.stringify({ html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT"), league, season, from, to })); } catch (error) {}
+      '<p class="muted">' + selectedCount + ' de ' + allGames.length +
+      ' jogos têm uma seleção calculável. Frequência histórica ou probabilidade implícita não é garantia de acerto nem prova de valor. Quanto mais jogos juntares, maior tende a ser o risco acumulado; confirma cada mercado e odd antes de apostar.</p>';
+
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        html: content.innerHTML, createdAt: new Date().toLocaleString("pt-PT"),
+        league, season, from, to, fixtureIds: allGames.map(entry => entry.game.fixture?.id)
+      }));
+    } catch (error) {}
   } catch (error) {
     content.innerHTML = '<p class="muted">Não foi possível criar a aposta múltipla: ' + safeText(error.message) + '</p>';
   } finally {
