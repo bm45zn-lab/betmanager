@@ -68,6 +68,8 @@ export default async function handler(req, res) {
 
   const internationalCompetition = /\b(world cup|club world cup|champions league|europa league|european championship|euro qualification|euro qualifiers|nations league|copa america|africa cup of nations|afcon|asian cup|olympic football|olympics|copa do mundo|campeonato europeu|qualificacao mundial|world cup qualifiers)\b/i;
   const excludedConfederationCompetition = /\b(concacaf|gold cup)\b/i;
+  // Taças nacionais pedidas no seletor, com nomes normalizados sem acentos.
+  const nationalCup = /^(taca de portugal|fa cup|copa del rey|coupe de france|dfb pokal|coppa italia)$/i;
 
   try {
     const url = new URL("https://v3.football.api-sports.io/leagues");
@@ -99,6 +101,7 @@ export default async function handler(req, res) {
       // mais fiável para estas quatro provas.
       const isInternational = internationalCompetition.test(name) &&
         !excludedConfederationCompetition.test(name);
+      const isNationalCup = nationalCup.test(normalizedName);
 
       // Só a primeira divisão de cada país europeu.
       const countryKey = country.replace(/\s+/g, "-");
@@ -110,7 +113,7 @@ export default async function handler(req, res) {
           return normalizedName === target || normalizedName.startsWith(target + " ");
         });
 
-      return isInternational || isEuropeanFirstDivision;
+      return isInternational || isNationalCup || isEuropeanFirstDivision;
     }).map(item => ({
       id: item.league.id,
       name: item.league.name,
