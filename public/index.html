@@ -176,7 +176,7 @@ async function analyse(id) {
       (statistics.results || []).map(team =>
         "<h4>" + (team.team?.name || "Equipa") + "</h4>" +
         (team.statistics || []).map(item =>
-          "<p>" + item.type + ': <b>' + (item.value ?? "N/D") + "</b></p>'
+          "<p>" + item.type + ': <b>' + (item.value ?? "N/D") + "</b></p>"
         ).join("")
       ).join("") +
       "<h3>Previsões do fornecedor</h3><pre></pre>";
