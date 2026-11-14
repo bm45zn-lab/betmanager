@@ -265,7 +265,10 @@ export default async function handler(req, res) {
 
   if (action === "daily") {
     const targetDate = url.searchParams.get("date") || lisbonDate(Date.now());
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDate)) {
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(targetDate);
+    const validDate = dateMatch && new Date(Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])))
+      .toISOString().slice(0, 10) === targetDate;
+    if (!validDate) {
       return res.status(400).json({ error: "Data inválida.", build: "daily-betclic-board-2026-11-15" });
     }
     try {
