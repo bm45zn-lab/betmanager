@@ -154,9 +154,7 @@ async function recentMarketAnalysis(match, key) {
       goals: fullHome !== null && fullAway !== null ? [fullHome, fullAway] : null,
       halfTime: halfHome !== null && halfAway !== null ? (halfHome > halfAway ? "1" : halfHome < halfAway ? "2" : "X") : null,
       corners: total("Corner Kicks"),
-      cards: total("Yellow Cards"),
-      shots: total("Total Shots"),
-      onTarget: total("Shots on Goal")
+      cards: total("Yellow Cards")
     };
   }));
 
@@ -180,8 +178,6 @@ async function recentMarketAnalysis(match, key) {
   addBinary("Ambas as equipas marcam: sim", goals, score => score[0] > 0 && score[1] > 0);
   addLine("Total de cantos: mais de 6,5", valid.map(x => x.corners), 6.5, "over");
   addLine("Total de cantos: mais de 7,5", valid.map(x => x.corners), 7.5, "over");
-  addLine("Total de remates: mais de 19,5", valid.map(x => x.shots), 19.5, "over");
-  addLine("Total de remates à baliza: mais de 6,5", valid.map(x => x.onTarget), 6.5, "over");
 
   const halfTimes = valid.map(row => row.halfTime).filter(Boolean);
   addBinary("Resultado ao intervalo: vitória da equipa da casa", halfTimes, value => value === "1");
@@ -223,15 +219,11 @@ async function liveMatchAnalysis(match, key) {
   const readStat = (rows, name) => statNumber(rows, name);
   const liveStats = {
     home: {
-      shots: readStat(homeStats, "Total Shots"),
-      shotsOnTarget: readStat(homeStats, "Shots on Goal"),
       corners: readStat(homeStats, "Corner Kicks"),
       yellowCards: readStat(homeStats, "Yellow Cards"),
       possession: readStat(homeStats, "Ball Possession")
     },
     away: {
-      shots: readStat(awayStats, "Total Shots"),
-      shotsOnTarget: readStat(awayStats, "Shots on Goal"),
       corners: readStat(awayStats, "Corner Kicks"),
       yellowCards: readStat(awayStats, "Yellow Cards"),
       possession: readStat(awayStats, "Ball Possession")
