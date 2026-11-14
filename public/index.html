@@ -322,13 +322,22 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
   </div>
   <section id="tab-daily-pane" class="card daily-board tab-pane" role="tabpanel" aria-labelledby="tab-daily" hidden>
     <div class="challenge-heading">
-      <div><div class="eyebrow">BETCLIC · JOGOS DE HOJE</div><h2 class="section-title">Boletim do dia</h2>
-        <p class="muted">Seleções simples ordenadas pela maior probabilidade implícita nas odds Betclic, para jogos que começam hoje em Portugal.</p></div>
-      <button type="button" id="dailyBoardRefresh">Gerar boletim de hoje</button>
+      <div><div class="eyebrow">BETCLIC · JOGOS DE AMANHÃ</div><h2 class="section-title">Boletim do dia seguinte</h2>
+        <p class="muted">Seleciona as ligas pretendidas e gera seleções simples para os jogos de amanhã em Portugal.</p></div>
+      <button type="button" id="dailyBoardRefresh">Gerar boletim de amanhã</button>
+    </div>
+    <div class="bank-panel" style="margin:16px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <h3 style="margin:0">Ligas incluídas</h3>
+        <div class="bank-actions" style="margin:0"><button type="button" id="dailySelectAll">Selecionar todas</button><button type="button" id="dailyClearAll" class="challenge-reset">Limpar seleção</button></div>
+      </div>
+      <p class="bank-note">Todas as ligas disponíveis ficam selecionadas inicialmente. Podes personalizar a lista antes de gerar o boletim.</p>
+      <div id="dailyLeagueStatus" class="bank-note">A carregar ligas disponíveis…</div>
+      <div id="dailyLeagueOptions" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:12px"></div>
     </div>
     <div class="daily-board-meta" id="dailyBoardMeta">Ainda não foi gerado nenhum boletim.</div>
-    <div id="dailyBoardPicks" class="daily-board-picks"><p class="muted">Carrega em “Gerar boletim de hoje” para consultar as odds atuais da Betclic.</p></div>
-    <p class="bank-note">A lista mostra as seleções individuais mais prováveis segundo o mercado, não uma múltipla. Uma probabilidade implícita elevada não significa certeza. Odds e mercados podem mudar ou desaparecer antes do início.</p>
+    <div id="dailyBoardPicks" class="daily-board-picks"><p class="muted">Escolhe as ligas e carrega em “Gerar boletim de amanhã”.</p></div>
+    <p class="bank-note">São seleções individuais ordenadas pela probabilidade implícita normalizada das odds Betclic, não uma múltipla. A probabilidade implícita não é uma previsão independente nem uma garantia.</p>
   </section>
 </main>
 <footer>BETMANAGER · Análise estatística de futebol · As previsões não garantem resultados.</footer>
@@ -1198,10 +1207,40 @@ function setMainTab(tab) {
     $("tab-" + name).classList.toggle("active", active);
     $("tab-" + name).setAttribute("aria-selected", String(active));
   });
-  if (tab === "daily" && !dailyBoardLoaded) loadDailyBoard();
+  if (tab === "daily") { loadDailyLeagues(); if (!dailyBoardLoaded) loadDailyBoard(); }
 }
 
 let dailyBoardLoaded = false;
+let dailySports = [];
+let dailyLeaguesReady = false;
+function tomorrowLisbonDate() {
+  const parts = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Lisbon",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+  const get = type => parts.find(part => part.type === type)?.value || "";
+  const date = new Date(get("year")+"-"+get("month")+"-"+get("day")+"T12:00:00Z");
+  date.setUTCDate(date.getUTCDate()+1);
+  return date.toISOString().slice(0,10);
+}
+function renderDailyLeagues() {
+  const root = $("dailyLeagueOptions");
+  root.innerHTML = dailySports.map(sport =>
+    '<label style="display:flex;align-items:center;gap:9px;padding:9px;border:1px solid #303030;border-radius:8px;background:#101010"><input type="checkbox" class="daily-league-check" value="' + safeText(sport.key) + '" checked style="width:auto;margin:0"><span>' + safeText(sport.title || sport.key) + '</span></label>'
+  ).join("");
+  $("dailyLeagueStatus").textContent = dailySports.length + " competições disponíveis · Todas selecionadas";
+  root.querySelectorAll(".daily-league-check").forEach(box => box.addEventListener("change", () => {
+    $("dailyLeagueStatus").textContent = root.querySelectorAll(".daily-league-check:checked").length + " de " + dailySports.length + " ligas selecionadas";
+  }));
+}
+async function loadDailyLeagues() {
+  if (dailyLeaguesReady) return;
+  try {
+    const data = await api("/api/challenge-odds?action=sports");
+    dailySports = Array.isArray(data.sports) ? data.sports.filter(s => s && s.key) : [];
+    dailyLeaguesReady = true;
+    renderDailyLeagues();
+  } catch (error) {
+    $("dailyLeagueStatus").textContent = "Não foi possível carregar as ligas: " + error.message;
+  }
+}
 function renderDailyBoard(data) {
   const root = $("dailyBoardPicks");
   const picks = Array.isArray(data?.picks) ? data.picks : [];
@@ -1226,18 +1265,24 @@ function renderDailyBoard(data) {
 }
 async function loadDailyBoard() {
   const button = $("dailyBoardRefresh");
+  await loadDailyLeagues();
+  const selected = Array.from(document.querySelectorAll(".daily-league-check:checked")).map(box => box.value);
+  if (!selected.length) {
+    $("dailyBoardPicks").innerHTML = '<p class="muted">Seleciona pelo menos uma liga.</p>';
+    $("dailyBoardMeta").textContent = "Nenhuma liga selecionada.";
+    return;
+  }
   button.disabled = true;
   button.textContent = "A consultar Betclic…";
-  $("dailyBoardPicks").innerHTML = '<p class="muted">A analisar os jogos que começam hoje e as odds disponíveis na Betclic.</p>';
-  const dateParts = new Intl.DateTimeFormat("en-CA", {timeZone:"Europe/Lisbon",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
-  const part = type => dateParts.find(item => item.type === type)?.value || "";
-  const date = part("year") + "-" + part("month") + "-" + part("day");
+  $("dailyBoardPicks").innerHTML = '<p class="muted">A analisar os jogos de amanhã nas ligas escolhidas…</p>';
+  const date = tomorrowLisbonDate();
   try {
-    const data = await api("/api/challenge-odds?action=daily&date=" + encodeURIComponent(date));
+    const params = new URLSearchParams({action:"daily",date,leagues:selected.join(",")});
+    const data = await api("/api/challenge-odds?" + params.toString());
     renderDailyBoard(data);
     dailyBoardLoaded = true;
-    const generated = data.generated_at ? new Date(data.generated_at).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"}) : "—";
-    $("dailyBoardMeta").textContent = "Data: " + date.split("-").reverse().join("/") + " · Fuso: Portugal continental · " +
+    const generated = data.generated_at ? new Date(data.generated_at).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"}) : "—";
+    $("dailyBoardMeta").textContent = "Jogos de " + date.split("-").reverse().join("/") + " · " + selected.length + " ligas · " +
       Number(data.events || 0).toLocaleString("pt-PT") + " jogos consultados · " +
       Number(data.candidates || 0).toLocaleString("pt-PT") + " seleções analisadas · Atualizado às " + generated;
     if (data.warning) $("dailyBoardMeta").title = data.warning;
@@ -1247,9 +1292,18 @@ async function loadDailyBoard() {
     $("dailyBoardMeta").textContent = "A consulta falhou. Podes tentar novamente.";
   } finally {
     button.disabled = false;
-    button.textContent = "Atualizar boletim";
+    button.textContent = "Gerar boletim de amanhã";
   }
 }
+$("dailySelectAll").addEventListener("click", () => {
+  document.querySelectorAll(".daily-league-check").forEach(box => box.checked = true);
+  $("dailyLeagueStatus").textContent = dailySports.length + " de " + dailySports.length + " ligas selecionadas";
+});
+$("dailyClearAll").addEventListener("click", () => {
+  document.querySelectorAll(".daily-league-check").forEach(box => box.checked = false);
+  $("dailyLeagueStatus").textContent = "0 de " + dailySports.length + " ligas selecionadas";
+});
+
 ["calculator", "bank", "challenge", "daily"].forEach(tab => {
   $("tab-" + tab).addEventListener("click", () => setMainTab(tab));
 });
