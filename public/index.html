@@ -593,7 +593,7 @@ async function createAccumulator() {
     const candidates = [];
     let cursor = 0;
     async function worker() {
-      while (cursor < upcoming.length && candidates.length < 6) {
+      while (cursor < upcoming.length) {
         const game = upcoming[cursor++];
         try {
           const predictionData = await api("/api/predictions?fixture=" + encodeURIComponent(game.fixture.id));
@@ -623,7 +623,7 @@ async function createAccumulator() {
     }
     await Promise.all([worker(), worker(), worker()]);
     candidates.sort((a, b) => b.probability - a.probability || b.sample - a.sample);
-    const selected = candidates.slice(0, 4);
+    const selected = candidates;
 
     if (!selected.length) {
       content.innerHTML = '<p class="muted">Não encontrei seleções que cumpram os critérios mínimos: pelo menos 80% de frequência histórica e cinco observações. Prefiro não inventar uma aposta; hoje a decisão mais prudente é não apostar.</p>';
@@ -632,7 +632,7 @@ async function createAccumulator() {
 
     content.innerHTML =
       '<p class="muted">Competição selecionada · ' + safeText(selected.length) +
-      ' seleções aprovadas após análise individual. Apenas jogos por começar.</p>' +
+      ' seleções aprovadas após análise individual. Todos os jogos elegíveis do período foram incluídos. Apenas jogos por começar.</p>' +
       selected.map((pick, index) =>
         '<div class="accumulator-pick"><span class="accumulator-meta">SELEÇÃO ' + (index + 1) +
         ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar") +
