@@ -698,7 +698,7 @@ async function createAccumulator() {
       selected.map((pick, index) =>
         '<div class="accumulator-pick"><span class="accumulator-meta">SELEÇÃO ' + (index + 1) +
         (pick.mode === "live" ? ' · <b>EM DIRETO</b> · ' + safeText(pick.minute ?? "—") +
-          "' · Resultado: " + safeText(pick.score?.home ?? "—") + "–" + safeText(pick.score?.away ?? "—")
+          " · Resultado: " + safeText(pick.score?.home ?? "—") + "–" + safeText(pick.score?.away ?? "—")
           : ' · ' + safeText(pick.date ? new Date(pick.date).toLocaleString("pt-PT") : "Data por confirmar")) +
         '</span><b>' + safeText(pick.home) + ' – ' + safeText(pick.away) + '</b>' +
         '<strong>' + safeText(pick.market) + '</strong>' +
