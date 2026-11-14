@@ -142,7 +142,7 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
         <summary>Taças nacionais</summary>
         <div class="quick-filters">
           <button type="button" data-league-name="taca de portugal">Taça de Portugal</button>
-          <button type="button" data-league-name="fa cup">FA Cup</button>
+          <button type="button" data-league-name="fa cup" data-league-country="England">FA Cup (Inglaterra)</button>
           <button type="button" data-league-name="copa del rey">Copa del Rey</button>
           <button type="button" data-league-name="coupe de france">Coupe de France</button>
           <button type="button" data-league-name="dfb pokal">DFB-Pokal</button>
@@ -272,12 +272,28 @@ async function selectQuickLeague(button) {
   const normalize = value => normalizeLeagueText(value)
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-  let matches = leagues.filter(item => {
-    if (country) return normalize(item.country) === normalize(country);
-    const actualName = normalize(item.name);
-    const requestedName = normalize(leagueName);
-    return requestedName && actualName.includes(requestedName);
+  const requestedName = normalize(leagueName);
+  const findMatches = () => leagues.filter(item => {
+    if (country && normalize(item.country) !== normalize(country)) return false;
+    if (requestedName) return normalize(item.name).includes(requestedName);
+    return Boolean(country);
   });
+  let matches = findMatches();
+
+  // A FA Cup pode não vir na listagem geral da época. Nesse caso, pede-a
+  // diretamente à API-Football, identificando explicitamente Inglaterra.
+  if (!matches.length && requestedName === "fa cup") {
+    for (const season of ["2026", "2025"]) {
+      const params = new URLSearchParams({ season, search: "FA Cup", country: "England" });
+      const result = await api("/api/leagues?" + params.toString());
+      const found = Array.isArray(result.results) ? result.results : [];
+      leagues = [...leagues, ...found.filter(item =>
+        !leagues.some(existing => String(existing.id) === String(item.id) && String(existing.season) === String(item.season))
+      )];
+      matches = findMatches();
+      if (matches.length) break;
+    }
+  }
   // Quando a mesma prova existe em duas épocas, escolhe a edição mais recente.
   matches.sort((a, b) => Number(b.season || 0) - Number(a.season || 0));
 
