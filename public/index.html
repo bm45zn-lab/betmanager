@@ -523,11 +523,44 @@ function renderPredictions(data) {
   const teams = item.teams || {};
   const comparison = item.comparison || {};
   const fixtureId = item.fixture?.id;
+  const wilsonLowerBound = (hits, sample) => {
+    // Limite inferior de Wilson (z=1): penaliza amostras pequenas sem
+    // tratar uma frequência observada de 100% como certeza.
+    const n = Number(sample);
+    const p = n > 0 ? Number(hits) / n : 0;
+    if (!n || !Number.isFinite(p)) return 0;
+    const z = 1;
+    const denominator = 1 + z * z / n;
+    const centre = p + z * z / (2 * n);
+    const margin = z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n);
+    return Math.max(0, (centre - margin) / denominator * 100);
+  };
+  const marketPreference = market => {
+    const name = String(market || "").toLocaleLowerCase("pt-PT");
+    // Sem odds, isto é apenas uma preferência de diversificação:
+    // não é uma estimativa de retorno nem de valor da aposta.
+    if (/mais de 0,5|over 0\.5/.test(name)) return -18;
+    if (/menos de 4,5|under 4\.5/.test(name)) return -8;
+    if (/mais de 1,5|over 1\.5/.test(name)) return 4;
+    if (/ambas as equipas marcam/.test(name)) return 5;
+    if (/cantos.*mais de 7,5/.test(name)) return 7;
+    if (/cantos.*mais de 6,5/.test(name)) return 4;
+    if (/cartões amarelos.*mais de 2,5/.test(name)) return 4;
+    if (/remates/.test(name)) return 4;
+    if (/resultado ao intervalo/.test(name)) return 2;
+    return 0;
+  };
   const historicalMarkets = Array.isArray(item.marketAnalysis?.evaluatedMarkets)
     ? item.marketAnalysis.evaluatedMarkets
         .filter(m => m && m.market && Number(m.sample) >= 5 &&
-          Number.isFinite(Number(m.probability)) && Number(m.probability) >= 75)
-        .map(m => ({ ...m, sourceLabel: "Histórico recente", kind: "historical" }))
+          Number.isFinite(Number(m.probability)) && Number(m.probability) >= 65)
+        .map(m => ({
+          ...m,
+          sourceLabel: "Histórico recente",
+          kind: "historical",
+          confidenceScore: wilsonLowerBound(m.hits, m.sample),
+          selectionScore: wilsonLowerBound(m.hits, m.sample) + marketPreference(m.market)
+        }))
     : [];
   const supplierPercent = value => {
     const n = Number(String(value ?? "").replace("%", "").replace(",", "."));
@@ -549,11 +582,20 @@ function renderPredictions(data) {
     if (bookmakerProfile !== "betano") return true;
     return !/total de remates|remates totais|remates à baliza|shots on target|total shots/i.test(market.market);
   });
-  // Uma única indicação por jogo: maior frequência observada / percentagem disponível.
-  // Em empate, privilegia a amostra histórica maior; não confundir frequência com garantia.
-  const bestMarket = [...compatibleHistoricalMarkets, ...supplierMarkets]
-    .sort((a, b) => Number(b.probability) - Number(a.probability) ||
-      Number(b.sample || 0) - Number(a.sample || 0))[0] || null;
+  // Escolhe primeiro entre mercados históricos: Wilson reduz a pontuação de
+  // amostras pequenas e a preferência evita que linhas de baixa remuneração
+  // presumida (ex.: mais de 0,5 golos) ganhem apenas por terem alta frequência.
+  // Sem odds reais, esta ordenação não mede rentabilidade nem valor esperado.
+  const rankedHistorical = [...compatibleHistoricalMarkets]
+    .sort((a, b) => Number(b.selectionScore) - Number(a.selectionScore) ||
+      Number(b.sample || 0) - Number(a.sample || 0) ||
+      Number(b.probability) - Number(a.probability));
+  const bestHistorical = rankedHistorical[0] || null;
+  // As estimativas do fornecedor só são usadas quando não há mercado histórico
+  // elegível; não comparamos percentagens de fontes/metodologias diferentes.
+  const bestSupplier = supplierMarkets
+    .sort((a, b) => Number(b.probability) - Number(a.probability))[0] || null;
+  const bestMarket = bestHistorical || bestSupplier;
   const predictedHomeGoals = prediction.goals?.home ?? item.score?.home;
   const predictedAwayGoals = prediction.goals?.away ?? item.score?.away;
   const hasScore = predictedHomeGoals !== null && predictedHomeGoals !== undefined &&
@@ -566,10 +608,10 @@ function renderPredictions(data) {
       : '<h3>' + safeText(winner) + '</h3>') +
     '<p>' + safeText(advice) + '</p>' +
     bookmakerRulesNote() +
-    '<div class="analysis-section"><h3>Aposta mais conservadora deste jogo</h3>' +
-      '<p class="muted">Apresentamos apenas uma indicação: a que tem a maior percentagem entre os mercados avaliados e compatíveis com a casa selecionada. O histórico exige pelo menos 5 jogos e frequência observada mínima de 75%. A percentagem do fornecedor é uma estimativa distinta. Nenhuma aposta é garantida; se os dados forem insuficientes, não recomendamos apostar.</p>' +
+    '<div class="analysis-section"><h3>Melhor seleção estatística deste jogo</h3>' +
+      '<p class="muted">Comparamos os mercados compatíveis com a casa selecionada. A ordenação histórica considera a frequência, o tamanho da amostra e uma margem de confiança; também diversifica para não escolher automaticamente mais de 0,5 golos. As estimativas do fornecedor só entram quando não há histórico elegível. Isto não calcula retorno nem valor esperado: para isso seriam necessárias as odds reais do teu boletim. Nenhuma aposta é garantida.</p>' +
       (bestMarket
-        ? '<div class="bet-suggestion"><span class="muted">ÚNICA INDICAÇÃO · ' + safeText(bestMarket.sourceLabel) + '</span><strong>' + safeText(bestMarket.market) + '</strong><span>' + safeText(Math.round(bestMarket.probability)) + '% ' + (bestMarket.sample ? '· Histórico: ' + safeText(bestMarket.hits ?? "—") + '/' + safeText(bestMarket.sample) + ' jogos' : '· Estimativa do fornecedor') + '</span></div>'
+        ? '<div class="bet-suggestion"><span class="muted">ÚNICA INDICAÇÃO · ' + safeText(bestMarket.sourceLabel) + '</span><strong>' + safeText(bestMarket.market) + '</strong><span>' + safeText(Math.round(bestMarket.probability)) + '% ' + (bestMarket.sample ? '· Histórico: ' + safeText(bestMarket.hits ?? "—") + '/' + safeText(bestMarket.sample) + ' jogos · Índice ajustado à amostra: ' + safeText(Math.round(bestMarket.confidenceScore)) + '/100' : '· Estimativa do fornecedor') + '</span></div>'
         : '<p class="muted">Sem dados suficientes para escolher uma aposta com critério. Não apostar é a indicação neste jogo.</p>') +
       (item.marketAnalysis?.excludedMarkets?.length
         ? '<details><summary>Mercados que não avaliamos como seguros</summary>' +
