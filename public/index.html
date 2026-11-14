@@ -63,6 +63,10 @@ button:disabled{opacity:.55;cursor:wait;transform:none}
 .match p{margin:4px 0 8px;font-size:11px}
 .match button{font-size:11px;padding:8px 12px}
 #analysis{min-height:180px}
+.bookmaker-label{display:block;margin:12px 0 6px;font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.bookmaker-select{max-width:260px;margin-bottom:12px}
+.bookmaker-rules{padding:12px 14px;border:1px solid #343434;border-radius:9px;background:#121212;font-size:11px;line-height:1.55;color:#c9c4c5;margin:10px 0}
+.bookmaker-rules strong{color:#ff6875}
 .analysis-section{margin:13px 0;padding:16px;background:linear-gradient(145deg,rgba(29,20,21,.76),rgba(18,18,18,.9));border:1px solid rgba(130,53,62,.25);border-radius:11px}
 .analysis-section>h3{font-size:15px;margin:0 0 12px}
 .analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px}
@@ -153,6 +157,11 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     </div>
     <div class="card" id="analysis-panel">
       <h2 class="section-title">Análise do jogo</h2>
+      <label class="bookmaker-label" for="bookmakerProfile">CASA DE APOSTAS A UTILIZAR</label>
+      <select id="bookmakerProfile" class="bookmaker-select">
+        <option value="betclic">Betclic Portugal</option>
+        <option value="betano">Betano Portugal</option>
+      </select>
       <div id="analysis">Seleciona um jogo para consultar a análise e as estatísticas.</div>
     </div>
   </section>
@@ -176,6 +185,7 @@ $("from").value = today;
 $("to").value = today;
 
 let leagues = [];
+let currentAnalysedFixture = null;
 
 async function api(path) {
   const response = await fetch(path, { cache: "no-store" });
@@ -466,6 +476,14 @@ function renderComparisonValue(value) {
   return safeText(String(value));
 }
 
+function bookmakerRulesNote() {
+  const profile = $("bookmakerProfile")?.value || "betclic";
+  if (profile === "betano") {
+    return '<div class="bookmaker-rules"><strong>Perfil Betano Portugal:</strong> o resultado correto é considerado ao fim dos 90 minutos, incluindo compensação, salvo indicação diferente no mercado. A Betano confirma que mercados estatísticos, como remates, podem depender de relatórios técnicos oficiais e demorar mais a liquidar. Para cartões, cantos e remates, confirma o período e a definição apresentados no próprio mercado antes de apostar; não assumimos regras que não estejam publicadas de forma clara.</div>';
+  }
+  return '<div class="bookmaker-rules"><strong>Perfil Betclic Portugal:</strong> golos e cantos contam, por regra, os 90 minutos mais compensação, sem prolongamento nem desempate por penáltis. O total de remates à baliza pode incluir prolongamento, mas exclui penáltis. Para cartões e mercados específicos, confirma sempre as condições do mercado no boletim.</div>';
+}
+
 function renderPredictions(data) {
   const results = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
   const item = results[0] || null;
@@ -494,6 +512,7 @@ function renderPredictions(data) {
       statCard("Cartões amarelos", liveStats.home?.yellowCards, liveStats.away?.yellowCards) +
       statCard("Posse de bola", liveStats.home?.possession, liveStats.away?.possession) +
       '</div>' +
+      bookmakerRulesNote() +
       '<p class="muted">' + safeText(live.note || "") + '</p>';
   }
 
@@ -550,6 +569,7 @@ function renderPredictions(data) {
       ? '<h3>' + safeText(predictedHomeGoals) + ' – ' + safeText(predictedAwayGoals) + '</h3>'
       : '<h3>' + safeText(winner) + '</h3>') +
     '<p>' + safeText(advice) + '</p>' +
+    bookmakerRulesNote() +
     '<div class="analysis-section"><h3>Indicações por mercado</h3>' +
       '<p class="muted">Mostramos várias opções no mesmo jogo, desde que tenham suporte nos dados. Histórico: mínimo de 5 jogos e frequência observada de 75%. Resultado 1X2: previsão do fornecedor, apresentada separadamente. Percentagens históricas não são probabilidades futuras nem garantias.</p>' +
       (marketCount
@@ -586,6 +606,7 @@ function renderPredictions(data) {
 }
 
 async function analyse(id) {
+  currentAnalysedFixture = id;
   $("analysis").innerHTML = '<p class="muted">A consultar estatísticas e previsões...</p>';
 
   try {
@@ -614,6 +635,12 @@ async function analyse(id) {
   }
 }
 
+$("bookmakerProfile").value = localStorage.getItem("betmanager-bookmaker-profile") || "betclic";
+$("bookmakerProfile").addEventListener("change", () => {
+  const profile = $("bookmakerProfile").value;
+  localStorage.setItem("betmanager-bookmaker-profile", profile);
+  if (currentAnalysedFixture) analyse(currentAnalysedFixture);
+});
 $("searchButton").addEventListener("click", loadFixtures);
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
