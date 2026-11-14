@@ -172,11 +172,8 @@ async function recentMarketAnalysis(match, key) {
     addBinary(label, values, value => direction === "over" ? value > threshold : value < threshold);
 
   const goals = valid.map(row => row.goals).filter(Boolean);
-  addBinary("Vitória da equipa da casa (1)", goals, score => score[0] > score[1]);
-  addBinary("Empate (X)", goals, score => score[0] === score[1]);
-  addBinary("Vitória da equipa visitante (2)", goals, score => score[0] < score[1]);
-  addBinary("Dupla hipótese 1X", goals, score => score[0] >= score[1]);
-  addBinary("Dupla hipótese X2", goals, score => score[1] >= score[0]);
+  // Os resultados 1X2 históricos são calculados separadamente pelo fornecedor
+  // para evitar misturar jogos antigos em que as equipas tiveram mandos diferentes.
   addLine("Total de golos: mais de 0,5", goals.map(x => x[0] + x[1]), 0.5, "over");
   addLine("Total de golos: mais de 1,5", goals.map(x => x[0] + x[1]), 1.5, "over");
   addLine("Total de golos: menos de 4,5", goals.map(x => x[0] + x[1]), 4.5, "under");
