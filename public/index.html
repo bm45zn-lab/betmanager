@@ -180,10 +180,10 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     <button type="button" class="tab-button active" id="tab-calculator" role="tab" aria-selected="true" aria-controls="tab-calculator-pane">Calculadora</button>
     <button type="button" class="tab-button" id="tab-bank" role="tab" aria-selected="false" aria-controls="tab-bank-pane">Gestor de banca</button>
     <button type="button" class="tab-button" id="tab-challenge" role="tab" aria-selected="false" aria-controls="tab-challenge-pane">Desafio</button>
-    <button type="button" class="tab-button" id="tab-analysis" role="tab" aria-selected="false" aria-controls="tab-analysis-pane">Análise de jogos</button>
-    <button type="button" class="tab-button" id="tab-daily" role="tab" aria-selected="false" aria-controls="tab-daily-pane">Boletim do dia</button>
+        <button type="button" class="tab-button" id="tab-daily" role="tab" aria-selected="false" aria-controls="tab-daily-pane">Boletim do dia</button>
   </div>
   <div id="tab-calculator-pane" class="tab-pane">
+
   <section class="card calendar-card" id="calendar">
     <div class="calendar-head"><h2 class="section-title">Explorar jogos</h2><span class="calendar-hint">Define o período e escolhe uma competição</span></div>
     <div class="grid">
@@ -235,81 +235,7 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     <p id="status"><small>Seleciona as datas para começar.</small></p>
   </section>
   </div>
-  <div id="tab-bank-pane" class="tab-pane" hidden>
-  <section class="card bank-manager" id="bank-manager">
-    <h2 class="section-title">Gestor de Banca</h2>
-    <div class="bank-summary">
-      <div class="bank-tile"><span>Banca total</span><strong id="bankBalance">20,00 €</strong></div>
-      <div class="bank-tile"><span>Disponível para apostar</span><strong id="bankAvailable">20,00 €</strong></div>
-      <div class="bank-tile"><span>Lucro / prejuízo</span><strong id="bankProfit">0,00 €</strong></div>
-    </div>
-    <div class="bank-grid">
-      <div class="bank-panel">
-        <h3>Recomendador de aposta</h3>
-        <div class="bank-fields">
-          <label>Odd decimal<input id="bankOdds" type="number" min="1.01" step="0.01" placeholder="Ex.: 1.80"></label>
-          <label>Valor a apostar (€)<input id="bankStake" type="number" min="0.01" step="0.01"></label>
-        </div>
-        <div class="bank-recommendation">
-          <span class="muted">RECOMENDAÇÃO CONSERVADORA · 2% DO DISPONÍVEL</span>
-          <strong id="bankSuggested">0,40 €</strong>
-          <small id="bankPotential" class="muted">Introduz uma odd para calcular o retorno potencial.</small>
-        </div>
-        <div class="bank-actions">
-          <button type="button" id="bankUseSuggestion">Usar valor recomendado</button>
-          <button type="button" id="bankRegister">Registar aposta pendente</button>
-        </div>
-        <p class="bank-note">A recomendação limita a exposição a 2% do saldo disponível. A odd calcula o retorno potencial, mas não prova que exista vantagem estatística.</p>
-      </div>
-      <div class="bank-panel">
-        <h3>Resumo e gestão</h3>
-        <div class="bank-fields">
-          <label>Adicionar fundos (€)<input id="bankDeposit" type="number" min="0.01" step="0.01" placeholder="Valor"></label>
-          <label>Saldo inicial (€)<input id="bankInitial" type="number" min="0.01" step="0.01" value="20"></label>
-        </div>
-        <div class="bank-actions">
-          <button type="button" id="bankAddFunds">Adicionar fundos</button>
-          <button type="button" id="bankSaveInitial">Atualizar banca inicial</button>
-        </div>
-        <div class="metric"><span>Apostas registadas</span><b id="bankCount">0</b></div>
-        <div class="metric"><span>Taxa de acerto</span><b id="bankWinRate">—</b></div>
-        <div class="metric"><span>ROI</span><b id="bankRoi">—</b></div>
-      </div>
-    </div>
-    <div class="bank-panel" style="margin-top:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <h3 style="margin:0">Histórico de apostas</h3>
-        <button type="button" id="bankClearHistory" style="background:#292020;border-color:#633039;box-shadow:none">Limpar histórico</button>
-      </div>
-      <div id="bankHistory" class="bank-history"><p class="muted">Ainda não existem apostas registadas.</p></div>
-    </div>
-    <p class="bank-note">Os registos ficam guardados neste navegador e dispositivo. Não são sincronizados com outros dispositivos nem enviados para uma casa de apostas.</p>
-  </section>
 
-  </div>
-  <div id="tab-challenge-pane" class="tab-pane" hidden>
-  <section class="card challenge-manager" id="challenge-manager">
-    <div class="challenge-heading">
-      <div><div class="eyebrow">DESAFIO DE BANCA</div><h2 class="section-title">De 1 € a 1.000 €</h2>
-        <p class="muted">Simulador de progressão de banca. Cada etapa utiliza 100% do saldo do desafio e pode perder a banca inteira; não representa uma estratégia de baixo risco.</p></div>
-      <div class="challenge-target"><span>Objetivo</span><strong>1.000,00 €</strong></div>
-    </div>
-    <div class="challenge-progress"><div><strong id="challengeBalance">1,00 €</strong><span id="challengeProgressText">0,1% concluído</span></div>
-      <div class="challenge-track"><div id="challengeProgressBar"></div></div></div>
-    <div class="challenge-panel">
-      <div class="challenge-panel-head"><div><h3>Escolha automática do dia</h3><p class="muted">Filtra apostas simples por qualidade das odds e margem do mercado. Se os dados não forem suficientes, não apresenta recomendação.</p></div>
-        <button type="button" id="challengeFindBest">Encontrar melhor aposta</button></div>
-      <div id="challengeBestResult" class="muted">Ainda não foi feita uma análise para hoje.</div>
-    </div>
-    <div class="challenge-panel">
-      <div class="challenge-panel-head"><h3>Histórico do desafio</h3><button type="button" id="challengeReset" class="challenge-reset">Reiniciar desafio</button></div>
-      <div id="challengeHistory" class="bank-history"><p class="muted">Ainda não existem etapas. Começa com 1,00 €.</p></div>
-    </div>
-    <p class="bank-note">As odds são informativas e pré-jogo. O ranking usa apenas preços da Betclic e não estima uma probabilidade independente. O desafio utiliza 100% da banca: uma única derrota elimina o saldo. Não é uma estratégia segura, não executa apostas e não deves usar dinheiro de que precises.</p>
-  </section>
-
-  </div>
-  <div id="tab-analysis-pane" class="tab-pane" hidden>
   <section class="workspace">
     <div class="card" id="games-panel">
       <h2 class="section-title">Jogos encontrados</h2>
@@ -1193,7 +1119,7 @@ document.querySelectorAll("[data-league-country], [data-league-name]").forEach(b
 });
 
 function setMainTab(tab) {
-  ["calculator", "bank", "challenge", "analysis", "daily"].forEach(name => {
+  ["calculator", "bank", "challenge", "daily"].forEach(name => {
     const active = name === tab;
     $("tab-" + name + "-pane").hidden = !active;
     $("tab-" + name).classList.toggle("active", active);
@@ -1251,7 +1177,7 @@ async function loadDailyBoard() {
     button.textContent = "Atualizar boletim";
   }
 }
-["calculator", "bank", "challenge", "analysis", "daily"].forEach(tab => {
+["calculator", "bank", "challenge", "daily"].forEach(tab => {
   $("tab-" + tab).addEventListener("click", () => setMainTab(tab));
 });
 $("dailyBoardRefresh").addEventListener("click", loadDailyBoard);
