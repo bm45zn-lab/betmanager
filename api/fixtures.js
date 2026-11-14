@@ -8,11 +8,15 @@ export default async function handler(req, res) {
   const key = process.env.API_FOOTBALL_KEY;
 
   if (!key) {
-    return res.status(500).json({ error: "API não configurada" });
+    return res.status(500).json({
+      error: "Chave API não configurada na Vercel"
+    });
   }
 
   if (!from || !to || from > to) {
-    return res.status(400).json({ error: "Datas inválidas" });
+    return res.status(400).json({
+      error: "Datas inválidas"
+    });
   }
 
   const params = new URLSearchParams({
@@ -32,21 +36,21 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    if (!response.ok || (data.errors &&
-        Object.keys(data.errors).length)) {
+    if (!response.ok || Object.keys(data.errors || {}).length) {
       return res.status(502).json({
-        error: "Erro ao consultar jogos",
+        error: "API-Football recusou o pedido",
         details: data.errors
       });
     }
 
     return res.status(200).json({
-      results: data.response,
-      count: data.results
+      results: data.response || [],
+      count: data.results || 0
     });
-  } catch {
+
+  } catch (error) {
     return res.status(502).json({
-      error: "Falha de comunicação com API-Football"
+      error: "Erro de comunicação com API-Football"
     });
   }
 }
