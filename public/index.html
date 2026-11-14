@@ -89,6 +89,23 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
 @media(max-width:820px){.workspace{grid-template-columns:1fr}.workspace>.card{min-height:0}#games{max-height:420px}.topnav a{padding:8px;font-size:12px}}
 @media(max-width:560px){.topbar{height:66px;padding:0 14px}.brand-mark{width:34px;height:34px}.brand-copy h1{font-size:15px}.brand-copy p{font-size:10px}.topnav{gap:0}.topnav a{font-size:11px;padding:7px}.topnav a:last-child{display:none}main{padding:22px 13px 40px}.welcome{align-items:flex-start;flex-direction:column;gap:10px;margin-bottom:18px}.card{padding:16px;border-radius:12px}.calendar-head{align-items:flex-start;flex-direction:column;gap:4px}.filter-groups{grid-template-columns:1fr}.analysis-section{padding:13px}.prediction{padding:15px}.bet-suggestion{padding:13px}.comparison-row{grid-template-columns:1fr;gap:3px}.comparison-nested .metric{grid-template-columns:1fr auto}.stat-card strong{font-size:19px}}
 
+
+.tab-strip{display:flex;gap:8px;margin:0 0 18px;padding:5px;border:1px solid #303030;border-radius:11px;background:#101010;width:max-content;max-width:100%}
+.tab-button{margin:0;background:transparent;border:1px solid transparent;box-shadow:none;color:#bcb8ba;padding:10px 16px}
+.tab-button.active{background:linear-gradient(135deg,#7d1723,#3a1117);border-color:#9e3440;color:#fff}
+.tab-pane[hidden]{display:none!important}
+.daily-board{margin-bottom:20px}
+.daily-board-meta{font-size:11px;color:var(--muted);margin:10px 0 14px}
+.daily-board-picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.daily-pick{border:1px solid #343434;border-radius:11px;background:#101010;padding:14px;min-width:0}
+.daily-pick .rank{font-size:10px;letter-spacing:.1em;color:#ff7580;font-weight:800}
+.daily-pick h3{font-size:15px;margin:7px 0}
+.daily-pick .pick-market{font-size:13px;font-weight:700;color:#fff}
+.daily-pick .pick-prob{font-size:22px;font-weight:850;color:#ff7580;margin:7px 0}
+.daily-pick .pick-details{font-size:11px;color:var(--muted);line-height:1.6}
+.daily-pick .pick-odds{font-size:10px;color:#8e898b;margin-top:7px}
+@media(max-width:520px){.tab-strip{width:100%}.tab-button{flex:1;padding:9px 8px;font-size:12px}.challenge-heading{flex-wrap:wrap}.daily-board-picks{grid-template-columns:1fr}}
+
 /* Gestor de banca */
 .bank-manager{margin:0 0 20px}
 .bank-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -159,6 +176,11 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     <div><div class="eyebrow">CENTRO DE CONTROLO</div><h2>Bem-vindo ao BetManager</h2><p>Pesquisa jogos, compara estatísticas e consulta previsões num só lugar.</p></div>
     <div class="live-pill"><span class="live-dot"></span> PLATAFORMA DE ANÁLISE</div>
   </section>
+  <div class="tab-strip" role="tablist" aria-label="Secções do BetManager">
+    <button type="button" class="tab-button active" id="tab-analysis" role="tab" aria-selected="true" aria-controls="tab-analysis-pane">Análise e banca</button>
+    <button type="button" class="tab-button" id="tab-daily" role="tab" aria-selected="false" aria-controls="tab-daily-pane">Boletim do dia</button>
+  </div>
+  <div id="tab-analysis-pane" class="tab-pane">
   <section class="card bank-manager" id="bank-manager">
     <h2 class="section-title">Gestor de Banca</h2>
     <div class="bank-summary">
@@ -288,6 +310,17 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
       <h2 class="section-title">Análise do jogo</h2>
       <div id="analysis">Seleciona um jogo para consultar a análise e as estatísticas.</div>
     </div>
+  </section>
+  </div>
+  <section id="tab-daily-pane" class="card daily-board tab-pane" role="tabpanel" aria-labelledby="tab-daily" hidden>
+    <div class="challenge-heading">
+      <div><div class="eyebrow">BETCLIC · JOGOS DE HOJE</div><h2 class="section-title">Boletim do dia</h2>
+        <p class="muted">Seleções simples ordenadas pela maior probabilidade implícita nas odds Betclic, para jogos que começam hoje em Portugal.</p></div>
+      <button type="button" id="dailyBoardRefresh">Gerar boletim de hoje</button>
+    </div>
+    <div class="daily-board-meta" id="dailyBoardMeta">Ainda não foi gerado nenhum boletim.</div>
+    <div id="dailyBoardPicks" class="daily-board-picks"><p class="muted">Carrega em “Gerar boletim de hoje” para consultar as odds atuais da Betclic.</p></div>
+    <p class="bank-note">A lista mostra as seleções individuais mais prováveis segundo o mercado, não uma múltipla. Uma probabilidade implícita elevada não significa certeza. Odds e mercados podem mudar ou desaparecer antes do início.</p>
   </section>
 </main>
 <footer>BETMANAGER · Análise estatística de futebol · As previsões não garantem resultados.</footer>
@@ -1149,6 +1182,69 @@ $("searchButton").addEventListener("click", loadFixtures);
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
 });
+
+function setMainTab(tab) {
+  const daily = tab === "daily";
+  $("tab-analysis-pane").hidden = daily;
+  $("tab-daily-pane").hidden = !daily;
+  $("tab-analysis").classList.toggle("active", !daily);
+  $("tab-daily").classList.toggle("active", daily);
+  $("tab-analysis").setAttribute("aria-selected", String(!daily));
+  $("tab-daily").setAttribute("aria-selected", String(daily));
+  if (daily && !dailyBoardLoaded) loadDailyBoard();
+}
+
+let dailyBoardLoaded = false;
+function renderDailyBoard(data) {
+  const root = $("dailyBoardPicks");
+  const picks = Array.isArray(data?.picks) ? data.picks : [];
+  if (!picks.length) {
+    root.innerHTML = '<p class="muted">Não foram encontradas seleções elegíveis para jogos de hoje. Não há boletim disponível neste momento.</p>';
+    return;
+  }
+  root.innerHTML = picks.map((pick, index) => {
+    const probability = Number(pick.market_probability);
+    const percent = Number.isFinite(probability) ? (probability * 100).toLocaleString("pt-PT", {maximumFractionDigits:1}) + "%" : "—";
+    const kickoff = pick.commence_time ? new Date(pick.commence_time).toLocaleTimeString("pt-PT", {hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"}) : "Hora indisponível";
+    const updated = pick.updated_at ? new Date(pick.updated_at).toLocaleTimeString("pt-PT", {hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"}) : "—";
+    return '<article class="daily-pick">' +
+      '<div class="rank">SELEÇÃO ' + String(index + 1).padStart(2,"0") + ' · PROBABILIDADE DE MERCADO</div>' +
+      '<h3>' + safeText(pick.home_team + " – " + pick.away_team) + '</h3>' +
+      '<div class="pick-market">' + safeText(pick.market + ": " + pick.selection) + '</div>' +
+      '<div class="pick-prob">' + percent + '</div>' +
+      '<div class="pick-details">' + safeText(pick.sport_title || "Futebol") + ' · Início: ' + safeText(kickoff) + '<br>Mercado: ' + safeText(pick.market_quality_label || pick.confidence_label || "Odds Betclic") + '</div>' +
+      '<div class="pick-odds">Odd atual: ' + challengeFormatOdd(pick.odds) + ' · Atualizada às ' + safeText(updated) + '</div>' +
+    '</article>';
+  }).join("");
+}
+async function loadDailyBoard() {
+  const button = $("dailyBoardRefresh");
+  button.disabled = true;
+  button.textContent = "A consultar Betclic…";
+  $("dailyBoardPicks").innerHTML = '<p class="muted">A analisar os jogos que começam hoje e as odds disponíveis na Betclic.</p>';
+  const date = localDateInputValue(new Date());
+  try {
+    const data = await api("/api/challenge-odds?action=daily&date=" + encodeURIComponent(date));
+    renderDailyBoard(data);
+    dailyBoardLoaded = true;
+    const generated = data.generated_at ? new Date(data.generated_at).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"}) : "—";
+    $("dailyBoardMeta").textContent = "Data: " + date.split("-").reverse().join("/") + " · Fuso: Portugal continental · " +
+      Number(data.events || 0).toLocaleString("pt-PT") + " jogos consultados · " +
+      Number(data.candidates || 0).toLocaleString("pt-PT") + " seleções analisadas · Atualizado às " + generated;
+    if (data.warning) $("dailyBoardMeta").title = data.warning;
+  } catch (error) {
+    dailyBoardLoaded = false;
+    $("dailyBoardPicks").innerHTML = '<p class="muted">Não foi possível gerar o boletim: ' + safeText(error.message) + '</p>';
+    $("dailyBoardMeta").textContent = "A consulta falhou. Podes tentar novamente.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Atualizar boletim";
+  }
+}
+$("tab-analysis").addEventListener("click", () => setMainTab("analysis"));
+$("tab-daily").addEventListener("click", () => setMainTab("daily"));
+$("dailyBoardRefresh").addEventListener("click", loadDailyBoard);
+
 initBankManager();
 initChallenge();
 loadLeagues();
