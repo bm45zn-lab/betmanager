@@ -111,6 +111,110 @@ function bettingSuggestion(predictions) {
   return { market: "Sem aposta recomendada", probability: best, reason: "A previsão não apresenta uma vantagem suficientemente clara." };
 }
 
+
+function statNumber(statistics, type) {
+  const row = (statistics || []).find(item => item.type === type);
+  return numberOrNull(row?.value);
+}
+
+async function recentMarketAnalysis(match, key) {
+  const homeId = match.teams?.home?.id;
+  const awayId = match.teams?.away?.id;
+  if (!homeId || !awayId) return null;
+
+  // Quatro jogos recentes por equipa: amostra curta, mas contextualizada
+  // sem multiplicar chamadas desnecessariamente.
+  const [homeFixtures, awayFixtures] = await Promise.all([
+    apiGet("https://v3.football.api-sports.io/fixtures?team=" + homeId + "&last=4&status=FT", key),
+    apiGet("https://v3.football.api-sports.io/fixtures?team=" + awayId + "&last=4&status=FT", key)
+  ]);
+  const fixtures = new Map();
+  [...(homeFixtures || []), ...(awayFixtures || [])].forEach(item => {
+    if (item.fixture?.id) fixtures.set(Number(item.fixture.id), item);
+  });
+  const recent = [...fixtures.values()].slice(0, 8);
+  if (recent.length < 4) return null;
+
+  const samples = await Promise.all(recent.map(async item => {
+    try {
+      const data = await apiGet(
+        "https://v3.football.api-sports.io/fixtures/statistics?fixture=" + item.fixture.id,
+        key
+      );
+      const home = (data || []).find(row => Number(row.team?.id) === Number(item.teams?.home?.id));
+      const away = (data || []).find(row => Number(row.team?.id) === Number(item.teams?.away?.id));
+      const h = home?.statistics || [];
+      const a = away?.statistics || [];
+      const htHome = numberOrNull(item.score?.halftime?.home);
+      const htAway = numberOrNull(item.score?.halftime?.away);
+      return {
+        corners: [statNumber(h, "Corner Kicks"), statNumber(a, "Corner Kicks")],
+        cards: [statNumber(h, "Yellow Cards"), statNumber(a, "Yellow Cards")],
+        shots: [statNumber(h, "Total Shots"), statNumber(a, "Total Shots")],
+        onTarget: [statNumber(h, "Shots on Goal"), statNumber(a, "Shots on Goal")],
+        halfTime: htHome !== null && htAway !== null ? (htHome > htAway ? "1" : htHome < htAway ? "2" : "X") : null
+      };
+    } catch {
+      return null;
+    }
+  }));
+
+  const valid = samples.filter(Boolean);
+  const markets = [];
+  const addLine = (label, values, threshold, direction, minSample = 5) => {
+    const observed = values.filter(value => value !== null && value !== undefined);
+    if (observed.length < minSample) return;
+    const hits = observed.filter(value => direction === "over" ? value > threshold : value < threshold).length;
+    const rate = Math.round(hits / observed.length * 100);
+    markets.push({ market: label, probability: rate, sample: observed.length, hits });
+  };
+  const totals = key => valid.map(row => row[key].every(v => v !== null) ? row[key][0] + row[key][1] : null);
+  addLine("Total de cantos: mais de 7,5", totals("corners"), 7.5, "over");
+  addLine("Total de cantos: mais de 6,5", totals("corners"), 6.5, "over");
+  addLine("Total de cartões amarelos: mais de 2,5", totals("cards"), 2.5, "over");
+  addLine("Total de cartões amarelos: menos de 5,5", totals("cards"), 5.5, "under");
+  addLine("Total de remates: mais de 19,5", totals("shots"), 19.5, "over");
+  addLine("Total de remates: menos de 31,5", totals("shots"), 31.5, "under");
+  addLine("Total de remates à baliza: mais de 6,5", totals("onTarget"), 6.5, "over");
+  addLine("Total de remates à baliza: menos de 12,5", totals("onTarget"), 12.5, "under");
+
+  const halfTimes = valid.map(row => row.halfTime).filter(Boolean);
+  if (halfTimes.length >= 5) {
+    ["1", "X", "2"].forEach(code => {
+      const hits = halfTimes.filter(value => value === code).length;
+      markets.push({
+        market: "Resultado ao intervalo: " + (code === "1" ? "equipa da casa" : code === "2" ? "equipa visitante" : "empate"),
+        probability: Math.round(hits / halfTimes.length * 100),
+        sample: halfTimes.length,
+        hits
+      });
+    });
+  }
+
+  // Só considerar uma aposta quando a frequência histórica é elevada.
+  // Frequência observada não equivale a valor esperado: faltam odds do bookmaker.
+  markets.sort((a, b) => b.probability - a.probability || b.sample - a.sample);
+  const best = markets.find(item => item.probability >= 80 && item.sample >= 5);
+  return {
+    sampleMatches: valid.length,
+    evaluatedMarkets: markets,
+    recommendation: best ? {
+      ...best,
+      market: best.market,
+      reason: "Atingiu " + best.probability + "% nos últimos " + best.sample + " jogos analisados. Frequência histórica, não garantia nem prova de valor face às odds."
+    } : {
+      market: "Sem aposta segura — não apostar",
+      probability: null,
+      reason: "Nenhum mercado atingiu o mínimo de 80% numa amostra de pelo menos cinco observações."
+    },
+    excludedMarkets: [
+      { market: "Resultado exato", reason: "Variância demasiado elevada para ser tratado como aposta segura." },
+      { market: "Marcador do golo", reason: "Só deve ser avaliado com onze inicial confirmado e dados individuais suficientes; não é recomendado como mercado seguro." },
+      { market: "Primeiro pontapé de baliza", reason: "A API não disponibiliza histórico fiável deste evento." }
+    ]
+  };
+}
+
 export default async function handler(req, res) {
   const key = process.env.API_FOOTBALL_KEY;
   const fixture = req.query.fixture;
@@ -162,10 +266,13 @@ export default async function handler(req, res) {
       Number(item.fixture?.id) === Number(fixture)
     );
 
+    const marketAnalysis = await recentMarketAnalysis(match, key);
+
     if (validPredictions.length) {
       const results = validPredictions.map(item => ({
         ...item,
-        betManagerSuggestion: bettingSuggestion(item.predictions)
+        marketAnalysis,
+        betManagerSuggestion: marketAnalysis?.recommendation || bettingSuggestion(item.predictions)
       }));
       return res.status(200).json({
         results,
@@ -209,7 +316,8 @@ export default async function handler(req, res) {
     }
 
     estimate.fixture.id = Number(fixture);
-    estimate.betManagerSuggestion = bettingSuggestion(estimate.predictions);
+    estimate.marketAnalysis = marketAnalysis;
+    estimate.betManagerSuggestion = marketAnalysis?.recommendation || bettingSuggestion(estimate.predictions);
     return res.status(200).json({
       results: [estimate],
       requestedFixture: Number(fixture),
