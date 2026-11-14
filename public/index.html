@@ -115,6 +115,36 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
 @media(max-width:700px){.bank-summary{grid-template-columns:1fr 1fr}.bank-grid{grid-template-columns:1fr}}
 @media(max-width:420px){.bank-fields{grid-template-columns:1fr}.bank-summary .bank-tile:last-child{grid-column:1/-1}}
 
+
+/* Desafio 1 a 1000 */
+.challenge-manager{margin:0 0 20px}
+.challenge-heading,.challenge-panel-head,.challenge-progress>div:first-child,.challenge-register-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.challenge-heading h2{margin:5px 0}
+.challenge-heading p{margin:4px 0 0;font-size:12px}
+.challenge-target{padding:11px 15px;border:1px solid #4b3034;border-radius:10px;background:#211417;white-space:nowrap}
+.challenge-target span,.challenge-progress span,.challenge-register-row span{display:block;color:var(--muted);font-size:10px}
+.challenge-target strong{display:block;color:#ff7580;font-size:20px}
+.challenge-progress{margin:18px 0;padding:15px;background:#101010;border:1px solid #303030;border-radius:11px}
+.challenge-progress strong{font-size:24px}
+.challenge-progress>div:first-child{margin-bottom:10px}
+.challenge-track{height:10px;background:#303030;border-radius:99px;overflow:hidden}
+.challenge-track>div{height:100%;width:0;background:linear-gradient(90deg,#a91526,#36c98b);border-radius:99px;transition:width .25s}
+.challenge-panel{padding:15px;background:#101010;border:1px solid #303030;border-radius:11px;margin-top:13px}
+.challenge-panel h3{margin:0;font-size:14px}
+.challenge-panel-head{margin-bottom:13px}
+.challenge-panel-head p{margin:4px 0 0;font-size:11px}
+.challenge-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.challenge-fields label{font-size:11px}
+.challenge-fields select{margin-top:5px;padding:10px;font-size:12px}
+.challenge-register-row{margin-top:14px;padding:12px;background:#191919;border:1px solid #353535;border-radius:9px}
+.challenge-register-row strong{display:block;font-size:20px;color:#36c98b}
+.challenge-register-row button{margin:0}
+.challenge-reset{background:#292020;border-color:#633039;box-shadow:none}
+.challenge-manager .bank-history table{min-width:720px}
+.challenge-manager .bank-history td button{white-space:nowrap}
+@media(max-width:760px){.challenge-fields{grid-template-columns:1fr 1fr}.challenge-heading{align-items:flex-start}}
+@media(max-width:480px){.challenge-fields{grid-template-columns:1fr}.challenge-heading{flex-direction:column}.challenge-register-row{align-items:flex-start;flex-wrap:wrap}.challenge-register-row button{width:100%}}
+
 </style>
 </head>
 <body>
@@ -178,6 +208,36 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
     </div>
     <p class="bank-note">Os registos ficam guardados neste navegador e dispositivo. Não são sincronizados com outros dispositivos nem enviados para uma casa de apostas.</p>
   </section>
+
+  <section class="card challenge-manager" id="challenge-manager">
+    <div class="challenge-heading">
+      <div><div class="eyebrow">DESAFIO DE BANCA</div><h2 class="section-title">De 1 € a 1.000 €</h2>
+        <p class="muted">Uma aposta de cada vez, utilizando sempre 100% da banca disponível. Registo manual: nenhuma aposta é colocada automaticamente.</p></div>
+      <div class="challenge-target"><span>Objetivo</span><strong>1.000,00 €</strong></div>
+    </div>
+    <div class="challenge-progress"><div><strong id="challengeBalance">1,00 €</strong><span id="challengeProgressText">0,1% concluído</span></div>
+      <div class="challenge-track"><div id="challengeProgressBar"></div></div></div>
+    <div class="challenge-panel">
+      <div class="challenge-panel-head"><div><h3>Odds Betclic Portugal</h3><p class="muted">Seleciona uma competição, um jogo e um mercado para consultar as odds disponíveis.</p></div>
+        <button type="button" id="challengeLoadOdds">Atualizar odds</button></div>
+      <div class="challenge-fields">
+        <label>Competição<select id="challengeSport"><option value="">A carregar competições…</option></select></label>
+        <label>Jogo<select id="challengeEvent" disabled><option value="">Escolhe uma competição</option></select></label>
+        <label>Mercado<select id="challengeMarket" disabled><option value="">Escolhe um jogo</option></select></label>
+        <label>Seleção<select id="challengeOutcome" disabled><option value="">Escolhe um mercado</option></select></label>
+      </div>
+      <div class="challenge-register-row"><div><span class="muted">Odd Betclic</span><strong id="challengeOdd">—</strong></div>
+        <div><span class="muted">Valor da próxima aposta (100%)</span><strong id="challengeStake">1,00 €</strong></div>
+        <button type="button" id="challengeRegister" disabled>Registar etapa</button></div>
+      <p class="bank-note" id="challengeOddsStatus">A chave da PropLine é configurada na Vercel através da variável PROPLINE_API_KEY.</p>
+    </div>
+    <div class="challenge-panel">
+      <div class="challenge-panel-head"><h3>Histórico do desafio</h3><button type="button" id="challengeReset" class="challenge-reset">Reiniciar desafio</button></div>
+      <div id="challengeHistory" class="bank-history"><p class="muted">Ainda não existem etapas. Começa com 1,00 €.</p></div>
+    </div>
+    <p class="bank-note">As odds são informativas e pré-jogo. Confirma sempre o preço no site da Betclic antes de apostar: as odds podem mudar ou deixar de estar disponíveis. Se perderes, a banca do desafio fica a zero. Isto é apenas um registo/simulador, não executa apostas.</p>
+  </section>
+
   <section class="card calendar-card" id="calendar">
     <div class="calendar-head"><h2 class="section-title">Explorar jogos</h2><span class="calendar-hint">Define o período e escolhe uma competição</span></div>
     <div class="grid">
@@ -375,6 +435,221 @@ function settleBankBet(id, status) {
   bet.status = status;
   saveBankState();
   renderBankManager();
+}
+
+
+/* Desafio 1 € -> 1.000 € — estado independente do gestor de banca */
+const CHALLENGE_STORAGE_KEY = "betmanager-challenge-1-to-1000-v1";
+const CHALLENGE_TARGET = 1000;
+let challengeState = loadChallengeState();
+let challengeSports = [];
+let challengeEvents = [];
+let challengeSelectedEvent = null;
+
+function loadChallengeState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHALLENGE_STORAGE_KEY) || "null");
+    if (saved && Array.isArray(saved.steps)) return { steps: saved.steps };
+  } catch {}
+  return { steps: [] };
+}
+function saveChallengeState() {
+  try { localStorage.setItem(CHALLENGE_STORAGE_KEY, JSON.stringify(challengeState)); }
+  catch { alert("Não foi possível guardar o desafio neste navegador."); }
+}
+function challengeBalance() {
+  let balance = 1;
+  for (const step of challengeState.steps) {
+    if (step.status === "won") balance = Number((balance * Number(step.odds)).toFixed(2));
+    else if (step.status === "lost") balance = 0;
+    else if (step.status === "void") balance = Number(balance.toFixed(2));
+    else break;
+  }
+  return balance;
+}
+function challengeHasPending() {
+  return challengeState.steps.some(step => step.status === "pending");
+}
+function challengeAmericanToDecimal(price) {
+  const n = Number(price);
+  if (!Number.isFinite(n) || n === 0) return null;
+  return n > 0 ? 1 + n / 100 : 1 + 100 / Math.abs(n);
+}
+function challengeFormatOdd(value) {
+  return Number(value).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function challengeSelectedOutcome() {
+  const event = challengeEvents.find(item => String(item.id) === $("challengeEvent").value);
+  const marketKey = $("challengeMarket").value;
+  const outcomeKey = $("challengeOutcome").value;
+  if (!event || !marketKey || !outcomeKey) return null;
+  const bookmaker = (event.bookmakers || []).find(book => book.key === "betclic_pt");
+  const market = (bookmaker?.markets || []).find(item => item.key === marketKey);
+  const outcome = (market?.outcomes || []).find((item, index) => String(index) === outcomeKey);
+  if (!outcome) return null;
+  const decimal = outcome.price_decimal ? Number(outcome.price_decimal) : challengeAmericanToDecimal(outcome.price);
+  if (!Number.isFinite(decimal) || decimal <= 1) return null;
+  return { event, market, outcome, decimal };
+}
+function renderChallenge() {
+  const balance = challengeBalance();
+  const percent = Math.min(100, balance / CHALLENGE_TARGET * 100);
+  $("challengeBalance").textContent = euro(balance);
+  $("challengeProgressText").textContent = percent.toLocaleString("pt-PT", { maximumFractionDigits: 2 }) + "% concluído";
+  $("challengeProgressBar").style.width = percent + "%";
+  $("challengeStake").textContent = euro(balance);
+  const selected = challengeSelectedOutcome();
+  $("challengeOdd").textContent = selected ? challengeFormatOdd(selected.decimal) : "—";
+  $("challengeRegister").disabled = !selected || balance <= 0 || balance >= CHALLENGE_TARGET || challengeHasPending();
+  const history = $("challengeHistory");
+  if (!challengeState.steps.length) {
+    history.innerHTML = '<p class="muted">Ainda não existem etapas. Começa com 1,00 €.</p>';
+    return;
+  }
+  const rows = [...challengeState.steps].reverse().map((step, reverseIndex) => {
+    const actualIndex = challengeState.steps.length - 1 - reverseIndex;
+    const statusText = {pending:"Pendente",won:"Ganha",lost:"Perdida",void:"Anulada"}[step.status] || "Pendente";
+    const after = step.status === "pending" ? "Por apurar" : euro(step.balanceAfter);
+    const actions = step.status === "pending"
+      ? '<button type="button" data-challenge-result="won" data-challenge-index="' + actualIndex + '">Ganha</button><button type="button" data-challenge-result="lost" data-challenge-index="' + actualIndex + '">Perdida</button><button type="button" data-challenge-result="void" data-challenge-index="' + actualIndex + '">Anulada</button>'
+      : '<span class="muted">Fechada</span>';
+    return '<tr><td>' + (actualIndex + 1) + '</td><td>' + safeText(step.event) + '<br><small>' + safeText(step.market + " · " + step.selection) + '</small></td><td>' + euro(step.stake) + '</td><td>' + challengeFormatOdd(step.odds) + '</td><td>' + statusText + '</td><td>' + after + '</td><td>' + actions + '</td></tr>';
+  }).join("");
+  history.innerHTML = '<table><thead><tr><th>#</th><th>Jogo / mercado</th><th>Stake (100%)</th><th>Odd</th><th>Resultado</th><th>Banca final</th><th>Atualizar</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+function challengeRenderMarkets() {
+  const event = challengeEvents.find(item => String(item.id) === $("challengeEvent").value);
+  const marketSelect = $("challengeMarket");
+  marketSelect.innerHTML = '<option value="">Seleciona um mercado</option>';
+  $("challengeOutcome").innerHTML = '<option value="">Seleciona uma seleção</option>';
+  $("challengeOutcome").disabled = true;
+  if (!event) { marketSelect.disabled = true; renderChallenge(); return; }
+  const book = (event.bookmakers || []).find(item => item.key === "betclic_pt");
+  (book?.markets || []).forEach(market => {
+    const option = document.createElement("option");
+    option.value = market.key;
+    option.textContent = market.description || ({h2h:"Resultado final (1X2)",totals:"Total de golos",spreads:"Handicap"}[market.key] || market.key);
+    marketSelect.appendChild(option);
+  });
+  marketSelect.disabled = marketSelect.options.length <= 1;
+  renderChallenge();
+}
+function challengeRenderOutcomes() {
+  const event = challengeEvents.find(item => String(item.id) === $("challengeEvent").value);
+  const market = (event?.bookmakers?.find(item => item.key === "betclic_pt")?.markets || []).find(item => item.key === $("challengeMarket").value);
+  const select = $("challengeOutcome");
+  select.innerHTML = '<option value="">Seleciona uma opção</option>';
+  (market?.outcomes || []).forEach((outcome, index) => {
+    const odd = outcome.price_decimal ? Number(outcome.price_decimal) : challengeAmericanToDecimal(outcome.price);
+    if (!Number.isFinite(odd) || odd <= 1) return;
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = (outcome.name || "") + (outcome.description ? " · " + outcome.description : "") + " @ " + challengeFormatOdd(odd);
+    select.appendChild(option);
+  });
+  select.disabled = select.options.length <= 1;
+  renderChallenge();
+}
+async function challengeLoadSports() {
+  $("challengeOddsStatus").textContent = "A carregar competições com odds Betclic PT…";
+  try {
+    const data = await api("/api/challenge-odds?action=sports");
+    challengeSports = (Array.isArray(data.sports) ? data.sports : []).filter(item => item.active !== false && String(item.key).startsWith("soccer_"));
+    const select = $("challengeSport");
+    select.innerHTML = '<option value="">Seleciona uma competição</option>';
+    challengeSports.sort((a,b) => (/portugal|primeira/i.test(a.title + " " + a.key) ? -1 : 0) - (/portugal|primeira/i.test(b.title + " " + b.key) ? -1 : 0) || String(a.title).localeCompare(String(b.title)));
+    challengeSports.forEach(sport => {
+      const option = document.createElement("option");
+      option.value = sport.key;
+      option.textContent = sport.title || sport.key;
+      select.appendChild(option);
+    });
+    if (!challengeSports.length) $("challengeOddsStatus").textContent = "A API não devolveu competições de futebol disponíveis para a Betclic PT.";
+    else $("challengeOddsStatus").textContent = "Competições carregadas. As odds são pré-jogo e podem mudar.";
+  } catch (error) {
+    $("challengeOddsStatus").textContent = "Não foi possível carregar competições: " + error.message + ". Confirma a variável PROPLINE_API_KEY na Vercel.";
+  }
+}
+async function challengeFetchOdds() {
+  const sport = $("challengeSport").value;
+  if (!sport) { $("challengeOddsStatus").textContent = "Escolhe primeiro uma competição."; return; }
+  $("challengeLoadOdds").disabled = true;
+  $("challengeOddsStatus").textContent = "A consultar odds da Betclic PT…";
+  try {
+    const data = await api("/api/challenge-odds?sport=" + encodeURIComponent(sport));
+    challengeEvents = Array.isArray(data.events) ? data.events : [];
+    const eventSelect = $("challengeEvent");
+    eventSelect.innerHTML = '<option value="">Seleciona um jogo</option>';
+    challengeEvents.forEach(event => {
+      const option = document.createElement("option");
+      option.value = String(event.id);
+      option.textContent = (event.home_team || "Casa") + " – " + (event.away_team || "Fora") + " · " + (event.commence_time ? new Date(event.commence_time).toLocaleString("pt-PT") : "Data por confirmar");
+      eventSelect.appendChild(option);
+    });
+    eventSelect.disabled = !challengeEvents.length;
+    $("challengeMarket").disabled = true;
+    $("challengeMarket").innerHTML = '<option value="">Escolhe um jogo</option>';
+    $("challengeOutcome").disabled = true;
+    $("challengeOutcome").innerHTML = '<option value="">Escolhe um mercado</option>';
+    $("challengeOddsStatus").textContent = challengeEvents.length ? challengeEvents.length + " jogos com odds Betclic PT encontrados. Confirma sempre a odd na casa." : "Não há jogos com odds Betclic PT disponíveis nesta competição neste momento.";
+    renderChallenge();
+  } catch (error) {
+    $("challengeOddsStatus").textContent = "Erro ao consultar odds: " + error.message;
+  } finally {
+    $("challengeLoadOdds").disabled = false;
+  }
+}
+function challengeRegisterStep() {
+  const selected = challengeSelectedOutcome();
+  const balance = challengeBalance();
+  if (!selected || balance <= 0 || balance >= CHALLENGE_TARGET || challengeHasPending()) return;
+  if (!confirm("Vais registar uma etapa com 100% da banca do desafio (" + euro(balance) + ") à odd " + challengeFormatOdd(selected.decimal) + ". A aposta é apenas registada no BetManager; não será colocada automaticamente. Continuar?")) return;
+  challengeState.steps.push({
+    date: new Date().toISOString(),
+    event: selected.event.home_team + " – " + selected.event.away_team,
+    market: selected.market.description || selected.market.key,
+    selection: (selected.outcome.name || "") + (selected.outcome.description ? " " + selected.outcome.description : ""),
+    odds: Number(selected.decimal.toFixed(4)),
+    stake: balance,
+    status: "pending",
+    balanceAfter: null
+  });
+  saveChallengeState();
+  renderChallenge();
+}
+function challengeSettle(index, status) {
+  const step = challengeState.steps[index];
+  if (!step || step.status !== "pending" || !["won","lost","void"].includes(status)) return;
+  const labels = {won:"ganha",lost:"perdida",void:"anulada"};
+  if (!confirm("Confirmas que a aposta ficou " + labels[status] + "?")) return;
+  step.status = status;
+  if (status === "won") step.balanceAfter = Number((step.stake * step.odds).toFixed(2));
+  else if (status === "lost") step.balanceAfter = 0;
+  else step.balanceAfter = step.stake;
+  saveChallengeState();
+  renderChallenge();
+  if (challengeBalance() >= CHALLENGE_TARGET) alert("Parabéns! Atingiste o objetivo de 1.000 € no desafio.");
+  else if (challengeBalance() === 0) alert("A banca do desafio chegou a zero. Podes reiniciar para começar novamente com 1 €.");
+}
+function initChallenge() {
+  $("challengeSport").addEventListener("change", challengeFetchOdds);
+  $("challengeLoadOdds").addEventListener("click", challengeFetchOdds);
+  $("challengeEvent").addEventListener("change", challengeRenderMarkets);
+  $("challengeMarket").addEventListener("change", challengeRenderOutcomes);
+  $("challengeOutcome").addEventListener("change", renderChallenge);
+  $("challengeRegister").addEventListener("click", challengeRegisterStep);
+  $("challengeHistory").addEventListener("click", event => {
+    const button = event.target.closest("[data-challenge-result]");
+    if (button) challengeSettle(Number(button.dataset.challengeIndex), button.dataset.challengeResult);
+  });
+  $("challengeReset").addEventListener("click", () => {
+    if (!confirm("Queres reiniciar o desafio? O histórico deste desafio será apagado e a banca volta a 1,00 €. O Gestor de Banca não será alterado.")) return;
+    challengeState.steps = [];
+    saveChallengeState();
+    renderChallenge();
+  });
+  renderChallenge();
+  challengeLoadSports();
 }
 
 function initBankManager() {
@@ -932,6 +1207,7 @@ document.querySelectorAll("[data-league-country], [data-league-name]").forEach(b
   button.addEventListener("click", () => selectQuickLeague(button));
 });
 initBankManager();
+initChallenge();
 loadLeagues();
 </script>
 </body>
