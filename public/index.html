@@ -564,6 +564,9 @@ async function analyse(id) {
       '</div><div class="analysis-section"><h3>Previsões</h3>' +
       renderPredictions(predictions) +
       '<p class="muted">As previsões são indicadores estatísticos, não garantias de resultado.</p></div>';
+    if (predictionResults[0]?.liveAnalysis) {
+      window.setTimeout(() => analyse(id), 60000);
+    }
   } catch (error) {
     $("analysis").innerHTML = '<p>Não foi possível carregar a análise: ' +
       safeText(error.message) + '</p>';
