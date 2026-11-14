@@ -72,7 +72,7 @@ function marketCandidates(event, sport, now) {
         market_probability: Number(probability.toFixed(4)),
         overround: Number(overround.toFixed(4)),
         updated_at: book.last_update || event.last_update || null,
-        confidence_label: overround <= 1.04 ? "Margem baixa" : "Margem aceitável"
+        market_quality_label: overround <= 1.04 ? "Margem baixa" : "Margem moderada"
       });
     }
   }
