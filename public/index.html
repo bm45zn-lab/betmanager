@@ -88,6 +88,33 @@ details:not(.filter-group)>summary:hover{color:#fff}
 footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:11px}
 @media(max-width:820px){.workspace{grid-template-columns:1fr}.workspace>.card{min-height:0}#games{max-height:420px}.topnav a{padding:8px;font-size:12px}}
 @media(max-width:560px){.topbar{height:66px;padding:0 14px}.brand-mark{width:34px;height:34px}.brand-copy h1{font-size:15px}.brand-copy p{font-size:10px}.topnav{gap:0}.topnav a{font-size:11px;padding:7px}.topnav a:last-child{display:none}main{padding:22px 13px 40px}.welcome{align-items:flex-start;flex-direction:column;gap:10px;margin-bottom:18px}.card{padding:16px;border-radius:12px}.calendar-head{align-items:flex-start;flex-direction:column;gap:4px}.filter-groups{grid-template-columns:1fr}.analysis-section{padding:13px}.prediction{padding:15px}.bet-suggestion{padding:13px}.comparison-row{grid-template-columns:1fr;gap:3px}.comparison-nested .metric{grid-template-columns:1fr auto}.stat-card strong{font-size:19px}}
+
+/* Gestor de banca */
+.bank-manager{margin:0 0 20px}
+.bank-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.bank-tile{background:#191919;border:1px solid #343434;border-radius:10px;padding:14px;min-width:0}
+.bank-tile span{display:block;color:var(--muted);font-size:11px}
+.bank-tile strong{display:block;font-size:clamp(19px,2.5vw,25px);margin-top:4px;overflow-wrap:anywhere}
+.bank-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px}
+.bank-panel{background:#101010;border:1px solid #303030;border-radius:11px;padding:15px;min-width:0}
+.bank-panel h3{margin:0 0 12px;font-size:14px}
+.bank-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bank-fields label{font-size:11px}
+.bank-fields input,.bank-fields select{margin-top:5px;padding:10px}
+.bank-recommendation{background:linear-gradient(120deg,rgba(32,100,69,.18),rgba(20,20,20,.8));border:1px solid rgba(54,201,139,.28);border-radius:10px;padding:13px;margin-top:12px}
+.bank-recommendation strong{display:block;color:#36c98b;font-size:25px}
+.bank-history{overflow-x:auto}
+.bank-history table{width:100%;border-collapse:collapse;font-size:12px;min-width:490px}
+.bank-history th,.bank-history td{text-align:left;padding:9px 7px;border-bottom:1px solid #2c2c2c;vertical-align:middle}
+.bank-history th{color:#aaa;font-size:10px;text-transform:uppercase}
+.bank-history button{font-size:10px;padding:6px 8px;margin:2px}
+.bank-positive{color:#36c98b}.bank-negative{color:#ef737d}
+.bank-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.bank-actions button{font-size:11px;padding:9px 11px}
+.bank-note{font-size:11px;color:var(--muted);margin:10px 0 0}
+@media(max-width:700px){.bank-summary{grid-template-columns:1fr 1fr}.bank-grid{grid-template-columns:1fr}}
+@media(max-width:420px){.bank-fields{grid-template-columns:1fr}.bank-summary .bank-tile:last-child{grid-column:1/-1}}
+
 </style>
 </head>
 <body>
@@ -101,6 +128,54 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 26px;color:#666;font-size:1
   <section class="welcome">
     <div><div class="eyebrow">CENTRO DE CONTROLO</div><h2>Bem-vindo ao BetManager</h2><p>Pesquisa jogos, compara estatísticas e consulta previsões num só lugar.</p></div>
     <div class="live-pill"><span class="live-dot"></span> PLATAFORMA DE ANÁLISE</div>
+  </section>
+  <section class="card bank-manager" id="bank-manager">
+    <h2 class="section-title">Gestor de Banca</h2>
+    <div class="bank-summary">
+      <div class="bank-tile"><span>Banca total</span><strong id="bankBalance">20,00 €</strong></div>
+      <div class="bank-tile"><span>Disponível para apostar</span><strong id="bankAvailable">20,00 €</strong></div>
+      <div class="bank-tile"><span>Lucro / prejuízo</span><strong id="bankProfit">0,00 €</strong></div>
+    </div>
+    <div class="bank-grid">
+      <div class="bank-panel">
+        <h3>Recomendador de aposta</h3>
+        <div class="bank-fields">
+          <label>Jogo<input id="bankGame" type="text" placeholder="Ex.: Benfica – Porto"></label>
+          <label>Mercado<input id="bankMarket" type="text" placeholder="Ex.: Mais de 1,5 golos"></label>
+          <label>Odd decimal<input id="bankOdds" type="number" min="1.01" step="0.01" placeholder="Ex.: 1.80"></label>
+          <label>Valor a apostar (€)<input id="bankStake" type="number" min="0.01" step="0.01"></label>
+        </div>
+        <div class="bank-recommendation">
+          <span class="muted">RECOMENDAÇÃO CONSERVADORA · 2% DO DISPONÍVEL</span>
+          <strong id="bankSuggested">0,40 €</strong>
+          <small id="bankPotential" class="muted">Introduz uma odd para calcular o retorno potencial.</small>
+        </div>
+        <div class="bank-actions">
+          <button type="button" id="bankUseSuggestion">Usar valor recomendado</button>
+          <button type="button" id="bankRegister">Registar aposta pendente</button>
+        </div>
+        <p class="bank-note">A recomendação limita a exposição a 2% do saldo disponível. A odd calcula o retorno potencial, mas não prova que exista vantagem estatística.</p>
+      </div>
+      <div class="bank-panel">
+        <h3>Resumo e gestão</h3>
+        <div class="bank-fields">
+          <label>Adicionar fundos (€)<input id="bankDeposit" type="number" min="0.01" step="0.01" placeholder="Valor"></label>
+          <label>Saldo inicial (€)<input id="bankInitial" type="number" min="0.01" step="0.01" value="20"></label>
+        </div>
+        <div class="bank-actions">
+          <button type="button" id="bankAddFunds">Adicionar fundos</button>
+          <button type="button" id="bankSaveInitial">Atualizar banca inicial</button>
+        </div>
+        <div class="metric"><span>Apostas registadas</span><b id="bankCount">0</b></div>
+        <div class="metric"><span>Taxa de acerto</span><b id="bankWinRate">—</b></div>
+        <div class="metric"><span>ROI</span><b id="bankRoi">—</b></div>
+      </div>
+    </div>
+    <div class="bank-panel" style="margin-top:14px">
+      <h3>Histórico de apostas</h3>
+      <div id="bankHistory" class="bank-history"><p class="muted">Ainda não existem apostas registadas.</p></div>
+    </div>
+    <p class="bank-note">Os registos ficam guardados neste navegador e dispositivo. Não são sincronizados com outros dispositivos nem enviados para uma casa de apostas.</p>
   </section>
   <section class="card calendar-card" id="calendar">
     <div class="calendar-head"><h2 class="section-title">Explorar jogos</h2><span class="calendar-hint">Define o período e escolhe uma competição</span></div>
@@ -182,7 +257,154 @@ $("from").value = today;
 $("to").value = today;
 
 let leagues = [];
+
 let currentAnalysedFixture = null;
+
+const BANK_STORAGE_KEY = "betmanager-bank-v1";
+const BANK_DEFAULT = { initial: 20, deposits: 0, bets: [] };
+let bankState = loadBankState();
+
+function loadBankState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BANK_STORAGE_KEY) || "null");
+    if (saved && Number.isFinite(Number(saved.initial)) && Array.isArray(saved.bets)) {
+      return { initial: Math.max(0, Number(saved.initial)), deposits: Math.max(0, Number(saved.deposits) || 0), bets: saved.bets };
+    }
+  } catch {}
+  return { ...BANK_DEFAULT, bets: [] };
+}
+
+function saveBankState() {
+  try { localStorage.setItem(BANK_STORAGE_KEY, JSON.stringify(bankState)); }
+  catch { alert("Não foi possível guardar os dados da banca neste navegador."); }
+}
+
+function euro(value) {
+  return Number(value || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+}
+
+function bankBetNet(bet) {
+  if (bet.status === "won") return Number((bet.stake * (bet.odds - 1)).toFixed(2));
+  if (bet.status === "lost") return -Number(bet.stake);
+  return 0;
+}
+
+function bankTotals() {
+  const settled = bankState.bets.filter(b => ["won", "lost", "void"].includes(b.status));
+  const balance = Number((bankState.initial + bankState.deposits + settled.reduce((sum, bet) => sum + bankBetNet(bet), 0)).toFixed(2));
+  const reserved = bankState.bets.filter(b => b.status === "pending").reduce((sum, bet) => sum + Number(bet.stake), 0);
+  const available = Math.max(0, Number((balance - reserved).toFixed(2)));
+  const decided = settled.filter(b => ["won", "lost"].includes(b.status));
+  const wins = decided.filter(b => b.status === "won").length;
+  const staked = decided.reduce((sum, bet) => sum + Number(bet.stake), 0);
+  const profit = Number((balance - bankState.initial - bankState.deposits).toFixed(2));
+  return { balance, available, profit, settled, decided, wins, staked };
+}
+
+function bankRecommendation() {
+  const available = bankTotals().available;
+  return Math.floor(Math.min(available, available * 0.02) * 100 + 0.000001) / 100;
+}
+
+function updateBankRecommendation() {
+  const suggested = bankRecommendation();
+  const odds = Number($("bankOdds")?.value);
+  $("bankSuggested").textContent = euro(suggested);
+  if (Number.isFinite(odds) && odds > 1) {
+    $("bankPotential").textContent = "Retorno total potencial: " + euro(suggested * odds) + " · Lucro potencial: " + euro(suggested * (odds - 1)) + " (se ganhar)";
+  } else {
+    $("bankPotential").textContent = "Introduz uma odd superior a 1,00 para calcular o retorno potencial.";
+  }
+}
+
+function renderBankManager() {
+  const totals = bankTotals();
+  $("bankBalance").textContent = euro(totals.balance);
+  $("bankAvailable").textContent = euro(totals.available);
+  $("bankProfit").textContent = (totals.profit > 0 ? "+" : "") + euro(totals.profit);
+  $("bankProfit").className = totals.profit > 0 ? "bank-positive" : totals.profit < 0 ? "bank-negative" : "";
+  $("bankCount").textContent = String(bankState.bets.length);
+  $("bankWinRate").textContent = totals.decided.length ? (totals.wins / totals.decided.length * 100).toLocaleString("pt-PT", { maximumFractionDigits: 1 }) + "%" : "—";
+  $("bankRoi").textContent = totals.staked > 0 ? (totals.profit / totals.staked * 100).toLocaleString("pt-PT", { maximumFractionDigits: 1 }) + "%" : "—";
+  $("bankInitial").value = bankState.initial.toFixed(2);
+  const history = $("bankHistory");
+  if (!bankState.bets.length) {
+    history.innerHTML = '<p class="muted">Ainda não existem apostas registadas.</p>';
+  } else {
+    const rows = [...bankState.bets].reverse().map(bet => {
+      const statusLabel = { pending: "Pendente", won: "Ganha", lost: "Perdida", void: "Anulada" }[bet.status] || "Pendente";
+      const net = bankBetNet(bet);
+      const result = bet.status === "pending" ? "—" : (net > 0 ? "+" : "") + euro(net);
+      const actions = bet.status === "pending"
+        ? '<button type="button" data-bank-action="won" data-bank-id="' + safeText(bet.id) + '">Ganha</button><button type="button" data-bank-action="lost" data-bank-id="' + safeText(bet.id) + '">Perdida</button><button type="button" data-bank-action="void" data-bank-id="' + safeText(bet.id) + '">Anulada</button>'
+        : '<span class="muted">Fechada</span>';
+      return '<tr><td>' + safeText(new Date(bet.date).toLocaleDateString("pt-PT")) + '</td><td><b>' + safeText(bet.game || "Aposta") + '</b><br><small>' + safeText(bet.market || "—") + '</small></td><td>' + euro(bet.stake) + '</td><td>' + safeText(bet.odds.toFixed(2)) + '</td><td>' + statusLabel + '<br><small>' + result + '</small></td><td>' + actions + '</td></tr>';
+    }).join("");
+    history.innerHTML = '<table><thead><tr><th>Data</th><th>Jogo / mercado</th><th>Stake</th><th>Odd</th><th>Estado / líquido</th><th>Atualizar</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  updateBankRecommendation();
+}
+
+function registerBankBet() {
+  const odds = Number($("bankOdds").value);
+  const suggested = bankRecommendation();
+  const stake = Number($("bankStake").value || suggested);
+  if (!Number.isFinite(odds) || odds <= 1) { alert("Introduz uma odd decimal superior a 1,00."); return; }
+  if (!Number.isFinite(stake) || stake <= 0 || stake > bankTotals().available) { alert("O valor deve ser positivo e não pode ultrapassar o saldo disponível."); return; }
+  if (stake > bankTotals().available * 0.02 + 0.000001) {
+    if (!confirm("Este valor ultrapassa a recomendação de 2% da banca disponível. Queres registar mesmo assim?")) return;
+  }
+  bankState.bets.push({
+    id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 7),
+    date: new Date().toISOString(),
+    game: $("bankGame").value.trim(),
+    market: $("bankMarket").value.trim(),
+    stake: Number(stake.toFixed(2)),
+    odds,
+    status: "pending"
+  });
+  saveBankState();
+  $("bankStake").value = "";
+  renderBankManager();
+}
+
+function settleBankBet(id, status) {
+  const bet = bankState.bets.find(item => item.id === id);
+  if (!bet || bet.status !== "pending" || !["won", "lost", "void"].includes(status)) return;
+  const labels = { won: "ganha", lost: "perdida", void: "anulada" };
+  if (!confirm("Confirmas que esta aposta ficou " + labels[status] + "?")) return;
+  bet.status = status;
+  saveBankState();
+  renderBankManager();
+}
+
+function initBankManager() {
+  $("bankOdds").addEventListener("input", updateBankRecommendation);
+  $("bankUseSuggestion").addEventListener("click", () => { $("bankStake").value = bankRecommendation().toFixed(2); });
+  $("bankRegister").addEventListener("click", registerBankBet);
+  $("bankHistory").addEventListener("click", event => {
+    const button = event.target.closest("[data-bank-action]");
+    if (button) settleBankBet(button.dataset.bankId, button.dataset.bankAction);
+  });
+  $("bankAddFunds").addEventListener("click", () => {
+    const amount = Number($("bankDeposit").value);
+    if (!Number.isFinite(amount) || amount <= 0) { alert("Introduz um valor válido para adicionar fundos."); return; }
+    bankState.deposits = Number((bankState.deposits + amount).toFixed(2));
+    $("bankDeposit").value = "";
+    saveBankState();
+    renderBankManager();
+  });
+  $("bankSaveInitial").addEventListener("click", () => {
+    const amount = Number($("bankInitial").value);
+    if (!Number.isFinite(amount) || amount <= 0) { alert("A banca inicial tem de ser superior a zero."); return; }
+    if (!confirm("Alterar a banca inicial? O histórico de apostas mantém-se.")) return;
+    bankState.initial = Number(amount.toFixed(2));
+    saveBankState();
+    renderBankManager();
+  });
+  renderBankManager();
+}
+
 
 async function api(path) {
   const response = await fetch(path, { cache: "no-store" });
@@ -703,6 +925,7 @@ $("searchButton").addEventListener("click", loadFixtures);
 document.querySelectorAll("[data-league-country], [data-league-name]").forEach(button => {
   button.addEventListener("click", () => selectQuickLeague(button));
 });
+initBankManager();
 loadLeagues();
 </script>
 </body>
