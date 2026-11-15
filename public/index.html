@@ -1183,7 +1183,6 @@ function setMainTab(tab) {
 ["calculator", "bank", "challenge"].forEach(tab => {
   $("tab-" + tab).addEventListener("click", () => setMainTab(tab));
 });
-$("dailyBoardRefresh").addEventListener("click", loadDailyBoard);
 
 initBankManager();
 initChallenge();
